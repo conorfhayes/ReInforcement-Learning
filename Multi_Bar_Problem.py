@@ -1,4 +1,5 @@
-
+# link to paper where problem and rewards were presented 
+# https://www.aaai.org/ocs/index.php/AAAI/AAAI13/paper/download/6263/7274
 import numpy as np
 import math
 from random import randint
