@@ -888,7 +888,7 @@ def metric(array):
     plt.show()
 
 def main():
-    numEpisodes = 20000
+    numEpisodes = 10000
     numAgents = 9
     costArray = []
     emissionsArray = []
@@ -903,16 +903,17 @@ def main():
 
     global fileName
 
-    inc = 0
+    inc = 1
     while inc <= 25:
-        print("INC*********************: ", inc)
         j = 1
         env = Environment()
+        starter = 1
+        _agents_ = []
         while starter <= numAgents:
             agent = env.createAgent((300), starter + 1)
             starter = starter + 1
             _agents_.append(agent)
-        print("*************** Run " + str(inc + 1) +  " ***************")
+        print("*************** Run " + str(inc) +  " ***************")
         while j <= numEpisodes:
             print("Episode:", j)
             cost, emissions, reward = env.timeStep(_agents_, j)
