@@ -1,4 +1,3 @@
-
 # Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning.
 # A V0.1 of this implementation for my MSC thesis in Data Analytics
 # Code to be updated
@@ -171,22 +170,12 @@ class Agent:
         self.action_holder = []
         self.action_ = []
 
-        if len(powerArray) == 1:
-            previousPowerOutput = powerArray[-1]
-        elif len(powerArray) == 2:
-            previousPowerOutput = powerArray[-1]
-        else:
-            previousPowerOutput = powerArray[-1]
+        previousPowerOutput = powerArray[-1]
 
         while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
 
-            if len(powerArray) == 1:
-                valueQ = self.qTable[state][action]
-                self.action_holder.append(valueQ)
-                self.action_.append(action)
-
-            elif agent.getAgentID() == 2:
+            if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
                         valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
@@ -579,7 +568,7 @@ class Environment():
         line9 = "Cost: " + str(sum(costReward))
         line10 = "Emissions: " + str(sum(emissionsReward))
         line11 = "Violation Penalty: " + str(violationPenalty)
-        line12 = "State: " +str(type)
+        line12 = "State: " + str(type)
         line13 = " "
 
         with open(fileName, 'a') as out:
@@ -859,7 +848,7 @@ class Environment():
             hour = hour + 1
 
         totalCost = sum(costTotal)
-        totalEmissions = sum(emissionTotal)
+        totalEmissions = sum(emissionTotal)/10
         totalReward = sum(rewardTotal)
 
         fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
@@ -888,7 +877,7 @@ def metric(array):
     plt.show()
 
 def main():
-    numEpisodes = 10000
+    numEpisodes = 5000
     numAgents = 9
     costArray = []
     emissionsArray = []
@@ -904,7 +893,7 @@ def main():
     global fileName
 
     inc = 1
-    while inc <= 25:
+    while inc <= 1:
         j = 1
         env = Environment()
         starter = 1
