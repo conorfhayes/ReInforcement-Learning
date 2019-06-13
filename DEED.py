@@ -4,6 +4,7 @@
 # Code to be updated
 
 
+
 import numpy as np
 from numpy import array
 import math
@@ -814,18 +815,16 @@ class Environment():
             self.k = self.k + 1
             for agent in _agents_:
                 if hour == 1 and j == 1:
-                    Pn = 0
                     CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
-                    agent.powerArray.append(Pn)
                     action_ = 50
                     Pn = self.getPNM(action_, agent)
+                    agent.powerArray.append(Pn)
                     currentState = 0
                     Pnm.append(Pn)
                     agent.saveAction(action_)
 
                 elif hour == 1:
                     CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
-                    #currentState = 0
                     currentState = agent.getState()
                     agent.saveCurrentState(currentState)
                     action_ = agent.selectAction(currentState, agent.powerArray, agent)
@@ -897,20 +896,22 @@ def main():
     avgCost = []
     avgEmissions = []
     avgReward = []
-    env = Environment()
     _agents_ = []
     starter = 1
 
-    while starter <= numAgents:
-        agent = env.createAgent((300), starter+1)
-        starter = starter + 1
-        _agents_.append(agent)
+
 
     global fileName
 
-    j = 1
     inc = 0
-    while inc <= 0:
+    while inc <= 25:
+        print("INC*********************: ", inc)
+        j = 1
+        env = Environment()
+        while starter <= numAgents:
+            agent = env.createAgent((300), starter + 1)
+            starter = starter + 1
+            _agents_.append(agent)
         print("*************** Run " + str(inc + 1) +  " ***************")
         while j <= numEpisodes:
             print("Episode:", j)
