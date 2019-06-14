@@ -17,7 +17,7 @@ class Agent:
     qTable = []
     actions = []
 
-    U1 = [150, 470, 786.7998, 38.5397, 0.1524, 450, 0.041, 103.3908, -2.4444, 0.0312, 0.5035, 0.0207, 80, 80]
+    U1 = [150, 470, 786.7988, 38.5397, 0.1524, 450, 0.041, 103.3908, -2.4444, 0.0312, 0.5035, 0.0207, 80, 80]
     U2 = [135, 470, 451.3251, 46.1591, 0.1058, 600, 0.036, 103.3908, -2.4444, 0.0312, 0.5035, 0.0207, 80, 80]
     U3 = [73, 340, 1049.9977, 40.3965, 0.0280, 320, 0.038, 300.3910, -4.0695, 0.0509, 0.4968, 0.0202, 80, 80]
     U4 = [60, 300, 1243.5311, 38.3055, 0.0354, 260, 0.052, 300.3910, -4.0695, 0.0509, 0.4968, 0.0202, 50, 50]
@@ -436,7 +436,7 @@ class Environment():
                 #print("PNM 2:", Pnm[id])
                 eqn = self.U2[7] + (self.U2[8] * Pnm[id]) + (self.U2[9] * (Pnm[id]**2)) + (
                             self.U2[10] * math.exp(self.U2[11] * Pnm[id]))
-                #emissions = E * eqn
+                emissions = E * eqn
                 emissions = eqn
                 emissionsReward.append(emissions)
 
@@ -444,7 +444,7 @@ class Environment():
                 E = 10
                 eqn = self.U3[7] + (self.U3[8] * Pnm[id]) + (self.U3[9] * (Pnm[id]**2)) + (
                             self.U3[10] * math.exp(self.U3[11] * Pnm[id]))
-                #emissions = E * eqn
+                emissions = E * eqn
                 emissions = eqn
                 emissionsReward.append(emissions)
 
@@ -452,7 +452,7 @@ class Environment():
                 E = 10
                 eqn = self.U4[7] + (self.U4[8] * Pnm[id]) + (self.U4[9] * (Pnm[id]**2)) + (
                             self.U4[10] * math.exp(self.U4[11] * Pnm[id]))
-                #emissions = E * eqn
+                emissions = E * eqn
                 emissions = eqn
                 emissionsReward.append(emissions)
 
@@ -460,7 +460,7 @@ class Environment():
                 E = 10
                 eqn = self.U5[7] + (self.U5[8] * Pnm[id]) + (self.U5[9] * (Pnm[id]**2)) + (
                             self.U5[10] * math.exp(self.U5[11] * Pnm[id]))
-                #emissions = E * eqn
+                emissions = E * eqn
                 emissions = eqn
                 emissionsReward.append(emissions)
 
@@ -468,51 +468,51 @@ class Environment():
                 E = 10
                 eqn = self.U6[7] + (self.U6[8] * Pnm[id]) + (self.U6[9] * (Pnm[id]**2)) + (
                             self.U6[10] * math.exp(self.U6[11] * Pnm[id]))
-                #emissions = E * eqn
-                emissions = eqn
+                emissions = E * eqn
+                #emissions = eqn
                 emissionsReward.append(emissions)
 
             elif agent.getAgentID() == 7:
                 E = 10
                 eqn = self.U7[7] + (self.U7[8] * Pnm[id]) + (self.U7[9] * (Pnm[id]**2)) + (
                             self.U7[10] * math.exp(self.U7[11] * Pnm[id]))
-                #emissions = E * eqn
-                emissions = eqn
+                emissions = E * eqn
+                #emissions = eqn
                 emissionsReward.append(emissions)
 
             elif agent.getAgentID() == 8:
                 E = 10
                 eqn = self.U8[7] + (self.U8[8] * Pnm[id]) + (self.U8[9] * (Pnm[id]**2)) + (
                             self.U8[10] * math.exp(self.U8[11] * Pnm[id]))
-                #emissions = E * eqn
-                emissions = eqn
+                emissions = E * eqn
+                #emissions = eqn
                 emissionsReward.append(emissions)
 
             elif agent.getAgentID() == 9:
                 E = 10
                 eqn = self.U9[7] + (self.U9[8] * Pnm[id]) + (self.U9[9] * (Pnm[id]**2)) + (
                             self.U9[10] * math.exp(self.U9[11] * Pnm[id]))
-                #emissions = E * eqn
-                emissions = eqn
+                emissions = E * eqn
+                #emissions = eqn
                 emissionsReward.append(emissions)
 
             elif agent.getAgentID() == 10:
                 E = 10
                 eqn = self.U10[7] + (self.U10[8] * Pnm[id]) + (self.U10[9] * (Pnm[id]**2)) + (
                             self.U10[10] * math.exp(self.U10[11] * Pnm[id]))
-                #emissions = E * eqn
-                emissions = eqn
+                emissions = E * eqn
+                #emissions = eqn
                 emissionsReward.append(emissions)
 
-        P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U2[4] * (P1M ** 2)) + abs(
-            self.U2[5] * math.sin(self.U2[6] * (self.U2[0] - P1M)))
+        P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U1[4] * (P1M ** 2)) + abs(
+            self.U1[5] * math.sin(self.U1[6] * (self.U1[0] - P1M)))
         costReward.append(P1M_cost)
 
         E = 10
         eqn_ = self.U1[7] + (self.U1[8] * P1M) + (self.U1[9] * (P1M ** 2)) + (
                 self.U1[10] * (math.exp(self.U1[11] * P1M)))
-        #P1M_emissions = E * eqn_
-        P1M_emissions = eqn_
+        P1M_emissions = E * eqn_
+        #P1M_emissions = eqn_
         emissionsReward.append(P1M_emissions)
 
         # 1,000,000
@@ -848,7 +848,7 @@ class Environment():
             hour = hour + 1
 
         totalCost = sum(costTotal)
-        totalEmissions = sum(emissionTotal)/10
+        totalEmissions = sum(emissionTotal)#/10
         totalReward = sum(rewardTotal)
 
         fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
@@ -877,32 +877,27 @@ def metric(array):
     plt.show()
 
 def main():
-    numEpisodes = 5000
+    numEpisodes = 20000
     numAgents = 9
-    costArray = []
-    emissionsArray = []
-    rewardArray = []
-    avgCost = []
-    avgEmissions = []
-    avgReward = []
     _agents_ = []
-    starter = 1
-
-
-
     global fileName
 
     inc = 1
-    while inc <= 1:
+    costArraySum = [0] * numEpisodes
+    emissionsArraySum = [0] * numEpisodes
+    while inc <= 25:
         j = 1
         env = Environment()
         starter = 1
         _agents_ = []
+        costArray = []
+        emissionsArray = []
+        rewardArray = []
         while starter <= numAgents:
             agent = env.createAgent((300), starter + 1)
             starter = starter + 1
             _agents_.append(agent)
-        print("*************** Run " + str(inc) +  " ***************")
+        print("*************** Run " + str(inc) + " ***************")
         while j <= numEpisodes:
             print("Episode:", j)
             cost, emissions, reward = env.timeStep(_agents_, j)
@@ -913,23 +908,18 @@ def main():
 
             j = j + 1
 
-        avgCost.append(costArray)
-        avgEmissions.append(emissionsArray)
-        avgReward.append(rewardArray)
+        costArraySum = [x + y for x, y in zip(costArraySum, costArray)]
+        emissionsArraySum = [x + y for x, y in zip(emissionsArraySum, emissionsArray)]
 
         inc = inc + 1
-
-    AvgCost = [sum(x) for x in zip(*avgCost)]
-    AvgEmissions = [sum(x) for x in zip(*avgEmissions)]
-    AvgReward = [sum(x) for x in zip(*avgReward)]
-    myInt = 1
-    outAvgCost = [y / myInt for y in AvgCost]
-    outAvgEmissions = [y / myInt for y in AvgEmissions]
-    outAvgReward = [y / myInt for y in AvgReward]
+    myInt = 25
+    outAvgCost = [y / myInt for y in costArraySum]
+    outAvgEmissions = [y / myInt for y in emissionsArraySum]
+    #outAvgReward = [y / myInt for y in AvgReward]
 
     metric(outAvgCost)
     metric(outAvgEmissions)
-    metric(outAvgReward)
+    #metric(outAvgReward)
 
 if __name__ == "__main__":
     main()
