@@ -947,5 +947,6 @@ def main():
     metric(outAvgEmissions)
     #metric(outAvgReward)
 
+#Call Main
 if __name__ == "__main__":
     main()
