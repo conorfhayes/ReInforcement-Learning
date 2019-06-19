@@ -1,5 +1,5 @@
 # Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning.
-# A V0.1 of this implementation for my MSC thesis in Data Analytics
+# A V0.4 of this implementation for my MSC thesis in Data Analytics
 # Code to be updated
 
 
@@ -15,7 +15,6 @@ from random import seed
 import random
 
 class Agent:
-    seed(100)
 
     qTable = []
     actions = []
@@ -55,27 +54,37 @@ class Agent:
         self.stateVector = 0
         self.action_holder = []
         self.action_ = []
+        self.dReward = 0
         return self
 
     def decayEpsilon(self):
-        self.epsilon = self.epsilon * 0.999
+        self.epsilon = self.epsilon * 0.995
         return self.epsilon
 
     def decayAlpha(self):
         self.alpha = self.alpha * 0.99
         return self.alpha
 
+    def setDifferenceReward(self, reward):
+        self.dReward = reward
+
+    def getDifferenceReward(self):
+
+        return self.dReward
+
     def initialiseQvalue(self, numStates, numActions):
-        qTable = np.zeros((numStates, 101))
-        return qTable
+        self.qTable = np.zeros((numStates, 101))
+        return self.qTable
 
     def getAgentID(self):
 
         return self.id
 
-    def updateQTable(self,previousState, selectedAction, currentState, reward):
+    def updateQTable(self,previousState, selectedAction, currentState, reward, agent):
         oldQ = self.qTable[previousState][selectedAction]
-        maxQ = self.getMaxQValue(currentState)
+        #maxQ = self.getMaxQValue(agent, currentState)
+        maxQ = np.max(self.qTable[currentState,:])
+        #maxQ = self.qTable[currentState][selectedAction]
         newQ = oldQ + self.alpha * (reward + self.gamma * maxQ) - oldQ
         self.qTable[previousState][selectedAction] = newQ
         return self
@@ -113,18 +122,17 @@ class Agent:
 
     def getNextState(self,hour,action):
         base = [10, 10]
-
+        power = action[-1]
+        currentHour = hour - 1
+        nextHour = hour
         if hour == 24:
             PDM = self.PDM_hold[0]
-            PDM_ = self.PDM_hold[hour-1]
+            PDM_ = self.PDM_hold[currentHour]
             PDM_delta = PDM - PDM_
-            power = action
-            currentState = 0
-            return currentState
+
         else:
-            power = action
-            PDM = self.PDM_hold[hour]
-            PDM_ = self.PDM_hold[hour-1]
+            PDM = self.PDM_hold[nextHour]
+            PDM_ = self.PDM_hold[currentHour]
             PDM_delta = PDM - PDM_
 
         PDM_rescale = (PDM_delta - (-296)) * (492 - 0) / (196 - (-296)) + 0
@@ -132,9 +140,14 @@ class Agent:
                                 width=25,
                                 quantity=20)
 
-        bin_index1 = self.find_bin(PDM_rescale, bins_PDM)
-        currentState = array([bin_index1, power])
+        bins_power = self.create_bins(lower_bound=0,
+                                    width=13,
+                                    quantity=40)
 
+        bin_index1 = self.find_bin(PDM_rescale, bins_PDM)
+        bin_index2 = self.find_bin(power, bins_power)
+        currentState = [bin_index1, bin_index2]
+        #print(currentState)
         res = 0
         i = 0
         while i < 2:
@@ -142,6 +155,7 @@ class Agent:
             i += 1
 
         state = res
+        #print(state)
 
         return state
 
@@ -154,7 +168,7 @@ class Agent:
             #print(check)
             selectedAction = self.selectrandomAction()
         else:
-            selectedAction = self.getSelectedAction(state, previousPower, agent)
+            selectedAction = self.getSelectedAction(state, agent)
 
         return selectedAction
 
@@ -172,13 +186,14 @@ class Agent:
 
         return self.currentState
 
-    def getSelectedAction(self,state, powerArray, agent):
+    def getSelectedAction(self,state,agent):
         action = 0
 
         self.action_holder = []
         self.action_ = []
 
-        previousPowerOutput = agent.powerArray[-1]
+
+        previousPowerOutput = agent.powerArray[len(agent.powerArray)-1]
 
         while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
@@ -239,27 +254,33 @@ class Agent:
 
             action = action + 1
         maxIndex = self.action_holder.index(max(self.action_holder))
+        #print("Index: ", maxIndex)
+        #print(len(self.action_holder))
         maxActionIndex = self.action_[maxIndex]
+        #print("Action: ", maxActionIndex)
 
         return int(maxActionIndex)
 
-    def getMaxValuedAction(self, state):
+    def getMaxValuedAction(self, agent, state):
         self.action_holders = []
         action = 0
-        #
-        while action < self.numActions:
-            valueQ = self.qTable[state][action]
-            self.action_holders.append(valueQ)
-            action = action + 1
+        previousPower = agent.powerArray[-1]
 
-        maxActionIndex = self.action_holders.index(max(self.action_holders))
+        maxActionIndex = agent.getSelectedAction(state, agent)
 
-        return int(maxActionIndex)
+        #while action < self.numActions:
+        #    valueQ = self.qTable[state][action]
+        #    self.action_holders.append(valueQ)
+        #    action = action + 1
+
+        #maxActionIndex = self.action_holders.index(max(self.action_holders))
+
+        return self.qTable[state][maxActionIndex]
 
 
-    def getMaxQValue(self, state):
-        maxIndex = self.getMaxValuedAction(state)
-        return self.qTable[int(state)][int(maxIndex)]
+    def getMaxQValue(self,agent, state):
+        maxIndex = self.getMaxValuedAction(agent, state)
+        return maxIndex
 
     def getQTable(self):
         return self.qTable
@@ -348,14 +369,8 @@ class Environment():
         return nextAction
 
     def getPLM(self, Pnm, currentPDM):
-        sumOfArray = []
-        extraN = 2
         b_array = []
         c_array = []
-        while extraN <= 10:
-            sumOf = self.B[1][extraN-1] * Pnm[extraN-2]
-            sumOfArray.append(sumOf)
-            extraN = extraN + 1
         n = 2
         a = self.B[0][0]
         while n <= 10:
@@ -369,7 +384,7 @@ class Environment():
         jj = 2
         while nn <= 10:
             while jj <= 10:
-                cholder = (Pnm[nn-2] * self.B[nn-1][jj-1] * Pnm[nn-2]) #- sum(Pnm)
+                cholder = (Pnm[nn-2] * self.B[nn-1][jj-1] * Pnm[nn-2])
                 c_array.append(cholder)
                 jj = jj + 1
             nn = nn + 1
@@ -773,46 +788,218 @@ class Environment():
         return PNM
 
 
-    def calculateDifferenceReward(self,action_, pubCrowd, i, agent):
-        c = 6
-        totalReward = []
+    def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour, agentID):
+        costReward = []
+        emissionsReward = []
 
-        for people in pubCrowd:
-            rewardPerDay1 = (math.exp(-(people/c))) * people
-            rewardPerDay2 = (math.exp(-((people - 1)/c))) * (people - 1)
-            rewardPerDay = rewardPerDay1 - rewardPerDay2
-            totalReward.append(rewardPerDay)
+        for agent in _agents_:
+            a_id = agent.getAgentID()
+            id = a_id - 2
+            if agent.getAgentID() == 2:
+                cost = self.U2[2] + (self.U2[3] * (Pnm[id])) + (self.U2[4] * (Pnm[id] ** 2)) + abs(
+                    self.U2[5] * math.sin(self.U2[6] * (self.U2[0]-Pnm[id])))
+                costReward.append(cost)
 
-        if action_ == 0:
-            reward = totalReward[0]
-        elif action_ == 1:
-            reward = totalReward[1]
-        elif action_ == 2:
-            reward = totalReward[2]
-        elif action_ == 3:
-            reward = totalReward[3]
-        elif action_ == 4:
-            reward = totalReward[4]
-        elif action_ == 5:
-            reward = totalReward[5]
-        elif action_ == 6:
-            reward = totalReward[6]
+            elif agent.getAgentID() == 3:
+                cost = self.U3[2] + (self.U3[3] * (Pnm[id])) + (self.U3[4] * (Pnm[id] ** 2)) + abs(
+                    self.U3[5] * math.sin(self.U3[6] * (self.U3[0] - Pnm[id])))
+                costReward.append(cost)
 
-        #print("Reward for Each Agent", reward)
+            elif agent.getAgentID() == 4:
+                cost = self.U4[2] + (self.U4[3] * (Pnm[id])) + (self.U4[4] * (Pnm[id] ** 2)) + abs(
+                    self.U4[5] * math.sin(self.U4[6] * (self.U4[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 5:
+                cost = self.U5[2] + (self.U5[3] * (Pnm[id])) + (self.U5[4] * (Pnm[id] ** 2)) + abs(
+                    self.U5[5] * math.sin(self.U5[6] * (self.U5[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 6:
+                cost = self.U6[2] + (self.U6[3] * (Pnm[id])) + (self.U6[4] * (Pnm[id] ** 2)) + abs(
+                    self.U6[5] * math.sin(self.U6[6] * (self.U6[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 7:
+                cost = self.U7[2] + (self.U7[3] * (Pnm[id])) + (self.U7[4] * (Pnm[id] ** 2)) + abs(
+                    self.U7[5] * math.sin(self.U7[6] * (self.U7[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 8:
+                cost = self.U8[2] + (self.U8[3] * (Pnm[id])) + (self.U8[4] * (Pnm[id] ** 2)) + abs(
+                    self.U8[5] * math.sin(self.U8[6] * (self.U8[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 9:
+                cost = self.U9[2] + (self.U9[3] * (Pnm[id])) + (self.U9[4] * (Pnm[id] ** 2)) + abs(
+                    self.U9[5] * math.sin(self.U9[6] * (self.U9[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 10:
+                cost = self.U10[2] + (self.U10[3] * (Pnm[id])) + (self.U10[4] * (Pnm[id] ** 2)) + abs(
+                    self.U10[5] * math.sin(self.U10[6] * (self.U10[0] - Pnm[id])))
+                costReward.append(cost)
+
+            if agent.getAgentID() == 2:
+                E = 10
+                eqn2 = self.U2[7] + (self.U2[8] * Pnm[id]) + (self.U2[9] * (Pnm[id]**2)) + (
+                            self.U2[10] * math.exp(self.U2[11] * Pnm[id]))
+
+                emissions = E * eqn2
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 3:
+                E = 10
+                eqn3 = self.U3[7] + (self.U3[8] * Pnm[id]) + (self.U3[9] * (Pnm[id]**2)) + (
+                            self.U3[10] * math.exp(self.U3[11] * Pnm[id]))
+                emissions = E * eqn3
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 4:
+                E = 10
+                eqn4 = self.U4[7] + (self.U4[8] * Pnm[id]) + (self.U4[9] * (Pnm[id]**2)) + (
+                            self.U4[10] * math.exp(self.U4[11] * Pnm[id]))
+                emissions = E * eqn4
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 5:
+                E = 10
+                eqn5 = self.U5[7] + (self.U5[8] * Pnm[id]) + (self.U5[9] * (Pnm[id]**2)) + (
+                            self.U5[10] * math.exp(self.U5[11] * Pnm[id]))
+                emissions = E * eqn5
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 6:
+                E = 10
+                eqn6 = self.U6[7] + (self.U6[8] * Pnm[id]) + (self.U6[9] * (Pnm[id]**2)) + (
+                            self.U6[10] * math.exp(self.U6[11] * Pnm[id]))
+                emissions = E * eqn6
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 7:
+                E = 10
+                eqn7 = self.U7[7] + (self.U7[8] * Pnm[id]) + (self.U7[9] * (Pnm[id]**2)) + (
+                            self.U7[10] * math.exp(self.U7[11] * Pnm[id]))
+                emissions = E * eqn7
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 8:
+                E = 10
+                eqn8 = self.U8[7] + (self.U8[8] * Pnm[id]) + (self.U8[9] * (Pnm[id]**2)) + (
+                            self.U8[10] * math.exp(self.U8[11] * Pnm[id]))
+                emissions = E * eqn8
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 9:
+                E = 10
+                eqn9 = self.U9[7] + (self.U9[8] * Pnm[id]) + (self.U9[9] * (Pnm[id]**2)) + (
+                            self.U9[10] * math.exp(self.U9[11] * Pnm[id]))
+                emissions = E * eqn9
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 10:
+                E = 10
+                eqn10 = self.U10[7] + (self.U10[8] * Pnm[id]) + (self.U10[9] * (Pnm[id]**2)) + (
+                            self.U10[10] * math.exp(self.U10[11] * Pnm[id]))
+                emissions = E * eqn10
+                #emissions = eqn
+                emissionsReward.append(emissions)
+
+        P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U1[4] * (P1M ** 2)) + abs(
+            self.U1[5] * math.sin(self.U1[6] * (self.U1[0] - P1M)))
+        costReward.append(P1M_cost)
+
+        E = 10
+        eqn_ = self.U1[7] + (self.U1[8] * P1M) + (self.U1[9] * (P1M ** 2)) + (
+                self.U1[10] * (math.exp(self.U1[11] * P1M)))
+        P1M_emissions = E * eqn_
+        #P1M_emissions = eqn_
+        emissionsReward.append(P1M_emissions)
+
+        # 1,000,000
+        C = 100000
+        if P1M > 470:
+            h1 = P1M - 470
+        elif P1M < 150:
+            h1 = 150 - P1M
+        else:
+            h1 = 0
+
+        if hour == 1 and i == 1:
+            P1M_minus = 0
+            self.P1M_array.append(P1M)
+        elif hour == 1:
+            P1M_minus = self.P1M_array[-1]
+            self.P1M_array.append(P1M)
+        elif i == 2:
+            P1M_minus = self.P1M_array[-1]
+            self.P1M_array.append(P1M)
+        else:
+            P1M_minus = self.P1M_array[-1]
+            self.P1M_array.append(P1M)
+
+        if (P1M - P1M_minus) > 80:
+           h2 = (P1M - P1M_minus) - 80
+        elif (P1M - P1M_minus) < (-80):
+            h2 = (P1M - P1M_minus) + 80
+        else:
+            h2 = 0
+
+        if h1 != 0 and h2 == 0:
+            violationPenalty = (abs(h1 + 1)*self.U1[11]) * C
+        elif h1 == 0 and h2 != 0:
+            violationPenalty = (abs(h2 + 1)*self.U1[11]) * C
+        elif h1 == 0 and h2 == 0:
+            violationPenalty = 0
+        elif h1 !=0 and h2 !=0:
+            violationPenalty = (C * ((abs(h1 + 1)*self.U1[11]))) + (C * ((abs(h2 + 1) * self.U1[11])))
+
+
+        overallCostReward = (sum(costReward) * 0.225)
+        overallEmissionsReward = (sum(emissionsReward) * 0.275)
+        overallPenalty = (violationPenalty * 0.5)
+        G_z = overallEmissionsReward + overallCostReward + overallPenalty
+
+        agent_Cost = (sum(costReward) - costReward[agentID.getAgentID()-2]) * 0.225
+        #print("Agent ID: ", agentID.getAgentID())
+        agent_Emissions = (sum(emissionsReward) - emissionsReward[agentID.getAgentID() - 2]) * 0.275
+        totalAgentReward = agent_Cost + agent_Emissions + (violationPenalty * 0.5)
+
+        #Gz_1 = G_z - totalAgentReward
+        #reward = G_z - Gz_1
+        reward = -(totalAgentReward)
+        #print(reward)
+        #print("Total Reward: ", G_z)
+        #print("Total Agent Reward: ", totalAgentReward)
+
         fileName = ("DEED_Problem_Difference_Reward_" + self.timestamp + ".txt")
-        line1 = '***************** Episode: ' + str(self.j) + ' ***********************'
-        line2 = 'Agent: ' + str(i)
-        line3 = 'Agent ' + str(i) + " Action: " + str(action_)
-        line4 = "People Per Night " + str(pubCrowd)
-        line5 = "Reward Per Night " + str(totalReward)
-        line6 = "Reward for Each Agent " + str(reward)
-        line7 = "Q Table " + str(agent.getQTable())
+        line1 = '***************** Episode: ' + str(x) + ' ***********************'
+        line2 = '***************** Hour: ' + str(i) + ' ***********************'
+        line3 = "Reward: " + str(reward)
+        line4 = "Power: " + str(PDM)
+        line5 = "Agents Power: " + str(sum(Pnm))
+        line6 = "Slack Generator Power: " + str(P1M)
+        line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+        line8 = " Agents Power: " + str(Pnm)
+        line9 = "Cost: " + str(sum(costReward))
+        line10 = "Emissions: " + str(sum(emissionsReward))
+        line11 = "Violation Penalty: " + str(violationPenalty)
+        line12 = "State: " + str(type)
+        line13 = " "
 
         with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7))
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
         out.close()
-        self.OverallReward(reward)
-        return reward
+
+        return G_z, reward, sum(costReward), sum(emissionsReward)
 
     def timeStep(self, _agents_, j):
         hour = 1
@@ -827,22 +1014,23 @@ class Environment():
             for agent in _agents_:
                 if hour == 1 and j == 1:
                     CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
-                    action_ = 50
+                    action_ = 25
                     Pn = self.getPNM(action_, agent)
                     agent.powerArray.append(Pn)
-                    currentState = 0
                     Pnm.append(Pn)
                     agent.saveAction(action_)
-
-                elif hour == 1:
-                    CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
                     currentState = 0
                     agent.saveCurrentState(currentState)
-                    action_ = agent.selectAction(currentState, agent.powerArray, agent)
-                    Pn = self.getPNM(action_, agent)
-                    agent.powerArray.append(Pn)
-                    Pnm.append(Pn)
-                    agent.saveAction(action_)
+
+                #elif hour == 1:
+                #    CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
+                #    #currentState = 0
+                #    agent.saveCurrentState(currentState)
+                #    action_ = agent.selectAction(currentState, agent.powerArray, agent)
+                #    Pn = self.getPNM(action_, agent)
+                #    agent.powerArray.append(Pn)
+                #    Pnm.append(Pn)
+                #    agent.saveAction(action_)
                 else:
                     CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
                     currentState = agent.getState()
@@ -854,24 +1042,35 @@ class Environment():
 
             i = 0
             P1M = self.getPLM(Pnm, CurrentPDM)
-            reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M, hour)
-            emissionTotal.append(emissions)
-            costTotal.append(cost)
-            rewardTotal.append(reward)
+            #reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M, hour)
+            #emissionTotal.append(emissions)
+            #costTotal.append(cost)
+            #rewardTotal.append(reward)
             #print(PNM)
+            emissionsA = []
+            costA = []
             for agent in _agents_:
                 previousState = agent.getState()
                 action = agent.getAction()
-                currentState= agent.getNextState(hour, action)
+                G_z, reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
+                                                                    hour, agent)
+                #costA.append(cost)
+                #print(reward)
+                #emissionsA.append(emissions)
+                currentState = agent.getNextState(hour, agent.powerArray)
                 agent.saveCurrentState(currentState)
-                agent.updateQTable(previousState, action,currentState,reward)
+                agent.updateQTable(previousState, action, currentState, reward, agent)
                 i = i + 1
 
             hour = hour + 1
+            emissionTotal.append(emissions)
+            costTotal.append(cost)
+            #rewardTotal.append(sum(reward))
 
         totalCost = sum(costTotal)
         totalEmissions = sum(emissionTotal)
         totalReward = sum(rewardTotal)
+
 
         fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
         line1 = '***************** Episode: ' + str(j) + ' ***********************'
@@ -916,7 +1115,7 @@ def main():
         emissionsArray = []
         rewardArray = []
         while starter <= numAgents:
-            agent = env.createAgent((300), starter + 1)
+            agent = env.createAgent((500), starter + 1)
             starter = starter + 1
             _agents_.append(agent)
         print("*************** Run " + str(inc) + " ***************")
@@ -924,8 +1123,8 @@ def main():
             print("Episode:", j)
             cost, emissions, reward = env.timeStep(_agents_, j)
 
-            for agent in _agents_:
-                agent.decayEpsilon()
+            #for agent in _agents_:
+                #agent.decayEpsilon()
                 # agent.decayAlpha()
 
             costArray.append(cost)
@@ -947,6 +1146,5 @@ def main():
     metric(outAvgEmissions)
     #metric(outAvgReward)
 
-#Call Main
 if __name__ == "__main__":
     main()
