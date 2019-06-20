@@ -13,6 +13,9 @@ from collections import Counter
 import matplotlib.pyplot as plt
 from random import seed
 import random
+from plotnine import *
+import pandas as pd
+
 
 class Agent:
 
@@ -39,6 +42,7 @@ class Agent:
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
+        self.P1M_T_array = []
         qTable = self.initialiseQvalue(numStates, numActions)
         self.qTable = qTable
         self.selectedActions = []
@@ -82,9 +86,7 @@ class Agent:
 
     def updateQTable(self,previousState, selectedAction, currentState, reward, agent):
         oldQ = self.qTable[previousState][selectedAction]
-        maxQIndex = self.getMaxQValue(agent, currentState)
-        maxQ = self.qTable[currentState][maxQIndex]
-        print("Max Q: ", maxQ)
+        maxQ = self.getMaxQValue(agent, currentState)
         newQ = oldQ + self.alpha * (reward + self.gamma * maxQ) - oldQ
         self.qTable[previousState][selectedAction] = newQ
         return self
@@ -271,6 +273,7 @@ class Agent:
 
             action = action + 1
         maxIndex = self.action_holder.index(max(self.action_holder))
+
         #print("Index: ", maxIndex)
         #print(len(self.action_holder))
         maxActionIndex = self.action_[maxIndex]
@@ -285,17 +288,19 @@ class Agent:
             valueQ = self.qTable[state][action]
             self.action_holders.append(valueQ)
             action = action + 1
-        out = self.action_holders.index(min(self.action_holders, key=abs))
-        print(out)
+
         maxActionIndex = self.action_holders.index(max(self.action_holders))
-        #l = self.action_holders
-        print("Action:" , max(self.action_holders))
-        print("Action Holders: ", self.action_holders)
-        print("Index: ", maxActionIndex)
-        f = lambda l:max((x*x,x) for x in l)[1]
-        print("Near 0: ",f(self.action_holders))
-        #return int(maxActionIndex)
-        return out
+
+        return maxActionIndex
+
+    def find_nearest(self, array, value):
+        if len(array) == 1:
+            return 0
+        else:
+            array = array[array !=0]
+            array = np.asarray(array)
+            idx = (np.abs(array - value)).argmin()
+        return array[idx]
 
 
     def getMaxQValue(self,agent, state):
@@ -364,6 +369,7 @@ class Environment():
         self.timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', self.t)
         self.rewardArray = []
         self.P1M_array = []
+        self.P1M_T_array = []
 
     def createAgent(self, numStates, id):
         agent = Agent()
@@ -423,7 +429,6 @@ class Environment():
     def calculateGlobalReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour):
         costReward = []
         emissionsReward = []
-        #print("Pnm: ", Pnm)
 
         for agent in _agents_:
             a_id = agent.getAgentID()
@@ -479,18 +484,7 @@ class Environment():
                 #print("PNM 2:", Pnm[id])
                 eqn2 = self.U2[7] + (self.U2[8] * Pnm[id]) + (self.U2[9] * (Pnm[id]**2)) + (
                             self.U2[10] * math.exp(self.U2[11] * Pnm[id]))
-                #print(self.U2[7])
-                #print(self.U2[8])
-                #print(self.U2[9])
-                #print(self.U2[10])
-                #print(self.U2[11])
-                #print(Pnm)
-                #print(Pnm[id])
-                #print("Exp: ", np.exp(self.U2[11] * Pnm[id]))
-
                 emissions = E * eqn2
-                #print(emissions)
-                #emissions = eqn
                 emissionsReward.append(emissions)
 
             elif agent.getAgentID() == 3:
@@ -577,7 +571,7 @@ class Environment():
         else:
             h1 = 0
 
-        if hour == 1 and i == 1:
+        if hour == 1 and x == 1:
             P1M_minus = 0
             self.P1M_array.append(P1M)
         elif hour == 1:
@@ -597,7 +591,9 @@ class Environment():
         else:
             h2 = 0
 
-        if h1 != 0 and h2 == 0:
+        if hour ==1 and x == 1:
+            violationPenalty = 0
+        elif h1 != 0 and h2 == 0:
             violationPenalty = (abs(h1 + 1)*self.U1[11]) * C
         elif h1 == 0 and h2 != 0:
             violationPenalty = (abs(h2 + 1)*self.U1[11]) * C
@@ -808,7 +804,7 @@ class Environment():
         return PNM
 
 
-    def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour, agentID):
+    def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour,P1M_T, agentID):
         costReward = []
         emissionsReward = []
 
@@ -955,12 +951,6 @@ class Environment():
         if hour == 1 and i == 1:
             P1M_minus = 0
             self.P1M_array.append(P1M)
-        elif hour == 1:
-            P1M_minus = self.P1M_array[-1]
-            self.P1M_array.append(P1M)
-        elif i == 2:
-            P1M_minus = self.P1M_array[-1]
-            self.P1M_array.append(P1M)
         else:
             P1M_minus = self.P1M_array[-1]
             self.P1M_array.append(P1M)
@@ -972,7 +962,9 @@ class Environment():
         else:
             h2 = 0
 
-        if h1 != 0 and h2 == 0:
+        if hour == 1 and i == 1:
+            violationPenalty = 0
+        elif h1 != 0 and h2 == 0:
             violationPenalty = (abs(h1 + 1)*self.U1[11]) * C
         elif h1 == 0 and h2 != 0:
             violationPenalty = (abs(h2 + 1)*self.U1[11]) * C
@@ -982,19 +974,21 @@ class Environment():
             violationPenalty = (C * ((abs(h1 + 1)*self.U1[11]))) + (C * ((abs(h2 + 1) * self.U1[11])))
 
 
-        overallCostReward = (sum(costReward) * 0.225)
-        overallEmissionsReward = (sum(emissionsReward) * 0.275)
-        overallPenalty = (violationPenalty * 0.5)
+        overallCostReward = (sum(costReward)) * 0.225
+        overallEmissionsReward = (sum(emissionsReward)) * 0.275
+        overallPenalty = (violationPenalty) * 0.5
         G_z = overallEmissionsReward + overallCostReward + overallPenalty
 
-        agent_Cost = (sum(costReward) - costReward[agentID.getAgentID()-2]) * 0.225
-        #print("Agent ID: ", agentID.getAgentID())
-        agent_Emissions = (sum(emissionsReward) - emissionsReward[agentID.getAgentID() - 2]) * 0.275
-        totalAgentReward = agent_Cost + agent_Emissions + (violationPenalty * 0.5)
 
-        #Gz_1 = G_z - totalAgentReward
+        agent_Cost = (sum(costReward) - costReward[agentID.getAgentID()-2]) * 0.225
+        agent_Emissions = (sum(emissionsReward) - emissionsReward[agentID.getAgentID() - 2]) * 0.275
+        agent_Penalty = violationPenalty * 0.5
+        overallAgentReward = agent_Cost + agent_Emissions + agent_Penalty
+
+        outReward = overallAgentReward
         #reward = G_z - Gz_1
-        reward = -(totalAgentReward)
+        #reward = -(totalAgentReward)
+        reward = -outReward
         #print(reward)
         #print("Total Reward: ", G_z)
         #print("Total Agent Reward: ", totalAgentReward)
@@ -1021,7 +1015,7 @@ class Environment():
 
         return G_z, reward, sum(costReward), sum(emissionsReward)
 
-    def timeStep(self, _agents_, j):
+    def timeStep(self, _agents_, j, rewardType):
         hour = 1
         b = 0
         costTotal = []
@@ -1042,15 +1036,6 @@ class Environment():
                     currentState = 0
                     agent.saveCurrentState(currentState)
 
-                #elif hour == 1:
-                #    CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
-                #    #currentState = 0
-                #    agent.saveCurrentState(currentState)
-                #    action_ = agent.selectAction(currentState, agent.powerArray, agent)
-                #    Pn = self.getPNM(action_, agent)
-                #    agent.powerArray.append(Pn)
-                #    Pnm.append(Pn)
-                #    agent.saveAction(action_)
                 else:
                     CurrentPDM, PreviousPDM, PDM_delta = self.getPowerDemand(hour)
                     currentState = agent.getState()
@@ -1062,30 +1047,35 @@ class Environment():
 
             i = 0
             P1M = self.getPLM(Pnm, CurrentPDM)
-            reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M, hour)
-            emissionTotal.append(emissions)
-            costTotal.append(cost)
-            rewardTotal.append(reward)
-            #print(PNM)
-            emissionsA = []
-            costA = []
+            if rewardType == "Global":
+                reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M, hour)
+                emissionTotal.append(emissions)
+                costTotal.append(cost)
+                rewardTotal.append(reward)
+
+
             for agent in _agents_:
                 previousState = agent.getState()
                 action = agent.getAction()
-                #G_z, reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
-                                                                    #hour, agent)
-                #costA.append(cost)
-                #print(reward)
-                #emissionsA.append(emissions)
+                if rewardType == "Difference":
+                    Pnm_T = Pnm
+                    Pnm_T[agent.getAgentID()-2] = 0
+                    P1M_T = self.getPLM(Pnm_T, CurrentPDM)
+                    G_z, reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
+                                                                        hour,P1M_T, agent)
+                    #print("Agent: ", agent.getAgentID())
+                    #print("Reward: ", reward)
+
                 currentState = agent.getNextState(hour, agent.powerArray, agent)
                 agent.saveCurrentState(currentState)
                 agent.updateQTable(previousState, action, currentState, reward, agent)
                 i = i + 1
 
             hour = hour + 1
-            #emissionTotal.append(emissions)
-            #costTotal.append(cost)
-            #rewardTotal.append(sum(reward))
+            if rewardType == "Difference":
+                emissionTotal.append(emissions)
+                costTotal.append(cost)
+                rewardTotal.append(reward)
 
         totalCost = sum(costTotal)
         totalEmissions = sum(emissionTotal)
@@ -1094,74 +1084,120 @@ class Environment():
 
         fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
         line1 = '***************** Episode: ' + str(j) + ' ***********************'
-        line2 = ("Total Emissions: " + str(totalEmissions))
-        line3 = ("Total Cost: " + str(totalCost))
-        line4 = " "
+        line2 = "Reward Type: " + str(rewardType)
+        line3 = ("Total Emissions: " + str(totalEmissions))
+        line4 = ("Total Cost: " + str(totalCost))
+        line5 = ("Total Reward: " + str(totalReward))
+        line6 = " "
 
         with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4))
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6))
         out.close()
 
         return totalCost, totalEmissions, totalReward
 
 
-def metric(array):
-    plt.subplot(1, 1, 1)
-    plt.axhline(y=15.6, color='black', linewidth=1, linestyle='dashed', label="Optimal")
-    plt.plot(array, color='olive', linewidth=1, label="Global Rewards")
-    plt.title('Reward Over Epochs')
-    plt.ylabel('Performance - G(z)')
-    plt.xlabel('Epochs')
-    plt.xlim(0, len(array))
-    plt.ylim(min(array), max(array))
-    plt.legend()
-    plt.show()
+def costGraph(df):
+    x_axis = np.array(range(0, len(df.index)))
+    print(x_axis)
+    df['counter'] = x_axis
+    print(df[0:])
+    x = df['counter']
+    #y = costDataframe
+
+    costG = (ggplot(df) +
+            geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
+            geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
+            scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 5000)) +
+            scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
+            ylab(" Cost ($ x 10^6) ") +
+            xlab(" Episode ") +
+            ggtitle(" ") +
+            theme_matplotlib() +
+            theme(axis_text_y = element_text(size =6)) +
+            theme(axis_text_x=element_text(size=6)))
+    print(costG)
 
 def main():
     numEpisodes = 10000
     numAgents = 9
-    _agents_ = []
+    _agentsGlobal_ = []
     global fileName
 
     inc = 1
-    costArraySum = [0] * numEpisodes
-    emissionsArraySum = [0] * numEpisodes
+    costArraySumGlobal = [0] * numEpisodes
+    emissionsArraySumGlobal = [0] * numEpisodes
+
+    costArraySumDifference = [0] * numEpisodes
+    emissionsArraySumDifference = [0] * numEpisodes
     while inc <= 1:
         j = 1
-        env = Environment()
+        envGlobal = Environment()
+        envDifference = Environment()
         starter = 1
-        _agents_ = []
-        costArray = []
-        emissionsArray = []
-        rewardArray = []
+        _agentsGlobal_ = []
+        _agentsDifference_ = []
+        costArrayGlobal, costArrayDifference = [], []
+        emissionsArrayGlobal, emissionsArrayDifference = [], []
+        rewardArrayGlobal, rewardArrayDifference = [], []
+
         while starter <= numAgents:
-            agent = env.createAgent((250), starter + 1)
+            agentGlobal = envGlobal.createAgent((250), starter + 1)
+            agentDifference = envDifference.createAgent((250), starter + 1)
             starter = starter + 1
-            _agents_.append(agent)
+            _agentsGlobal_.append(agentGlobal)
+            _agentsDifference_.append(agentDifference)
         print("*************** Run " + str(inc) + " ***************")
         while j <= numEpisodes:
             print("Episode:", j)
-            cost, emissions, reward = env.timeStep(_agents_, j)
-            for agent in _agents_:
-                agent.decayEpsilon()
+
+            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global")
+            costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference")
+
+            #for agent in _agentsGlobal_:
+                #agent.decayEpsilon()
                 # agent.decayAlpha()
-            costArray.append(cost)
-            emissionsArray.append(emissions)
-            rewardArray.append(reward)
+
+            #for agent in _agentsDifference_:
+                #agent.decayEpsilon()
+                # agent.decayAlpha()
+
+            costArrayGlobal.append(costGlobal)
+            emissionsArrayGlobal.append(emissionsGlobal)
+            rewardArrayGlobal.append(rewardGlobal)
+
+            costArrayDifference.append(costDifference)
+            #emissionsArrayDifference.append(emissionsDifference)
+            #rewardArrayDifference.append(rewardDifference)
 
             j = j + 1
 
-        costArraySum = [x + y for x, y in zip(costArraySum, costArray)]
-        emissionsArraySum = [x + y for x, y in zip(emissionsArraySum, emissionsArray)]
+        costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
+        emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
+
+        costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
+        #emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
 
         inc = inc + 1
     myInt = 1
-    outAvgCost = [y / myInt for y in costArraySum]
-    outAvgEmissions = [y / myInt for y in emissionsArraySum]
+    outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
+    outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
+
+    outAvgCostDifference = [x / myInt for x in costArraySumDifference]
+    #outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
+
+    scaleAvgCostGlobal = [j/1000000 for j in outAvgCostGlobal]
+    #scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
+
+    scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
+    scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
     #outAvgReward = [y / myInt for y in AvgReward]
 
-    metric(outAvgCost)
-    metric(outAvgEmissions)
+    rewardCost = pd.DataFrame({'global':scaleAvgCostGlobal , 'difference': scaleAvgCostDifference})
+    #rewardEmissions = pd.DataFrame({'global': scaleAvgCostGlobal, 'difference': scaleAvgCostDifference})
+    print(rewardCost)
+    costGraph(rewardCost)
+    #emissionsGraph(scaleAvgEmissions)
     #metric(outAvgReward)
 
 if __name__ == "__main__":
