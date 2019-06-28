@@ -43,8 +43,8 @@ class Agent:
         self.gamma = gamma
         self.epsilon = epsilon
         self.P1M_array = []
-        qTable = self.initialiseQvalue(numStates, numActions)
-        self.qTable = qTable
+        self.qTable = self.initialiseQvalue(numStates, numActions)
+        #self.qTable = qTable
         self.selectedActions = []
         self.previousActions = []
         self.powerArray = []
@@ -69,7 +69,7 @@ class Agent:
         return self
 
     def decayEpsilon(self):
-        self.epsilon = self.epsilon * 0.999
+        self.epsilon = self.epsilon * 0.995
         return self.epsilon
 
     def decayAlpha(self):
@@ -96,9 +96,7 @@ class Agent:
         return self.P1M_Minus
 
     def initialiseQvalue(self, numStates, numActions):
-        #self.qTable = np.zeros((numStates, numActions))
-        self.qTable = np.empty((numStates, numActions))
-        self.qTable.fill(0)
+        self.qTable = np.zeros((numStates, numActions))
         return self.qTable
 
     def getAgentID(self):
@@ -412,7 +410,7 @@ class Environment():
         self.numActions = 7
         self.numEpisodes = 10000
         self.epsilon = 0.05
-        self.gamma = 0.75
+        self.gamma = 1
         self.alpha = 0.1
         self.k = 0
         self.t = time.localtime()
@@ -459,7 +457,7 @@ class Environment():
 
 
 
-    def calculateGlobalReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour):
+    def calculateGlobalReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour, scalarization):
         costReward = []
         emissionsReward = []
 
@@ -635,13 +633,19 @@ class Environment():
         elif h1 !=0 and h2 !=0:
             violationPenalty = (C * ((abs(h1 + 1)*self.U1[11]))) + (C * ((abs(h2 + 1) * self.U1[11])))
 
+        if scalarization == "hypervolume":
+            overallCostReward = -(sum(costReward))
+            overallEmissionsReward = -(sum(emissionsReward))
+            overallPenalty = -(violationPenalty)
 
-        overallCostReward = -(sum(costReward) * 0.225)
-        overallEmissionsReward = -(sum(emissionsReward) * 0.275)
-        overallPenalty = -(violationPenalty * 0.5)
-        reward = overallEmissionsReward + overallPenalty + overallCostReward
+        elif scalarization == "linear":
+            overallCostReward = -(sum(costReward)) * 0.225
+            overallEmissionsReward = -(sum(emissionsReward)) * 0.275
+            overallPenalty = -(violationPenalty) * 0.5
 
-        fileName = ("DEED_Problem_Global_Reward_" + self.timestamp + ".txt")
+        reward = (overallEmissionsReward + overallPenalty + overallCostReward)
+
+        fileName = ("DEED_Problem_Global_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
         line1 = '***************** Episode: ' + str(x) + ' ***********************'
         line2 = '***************** Hour: ' + str(i) + ' ***********************'
         line3 = "Reward: " + str(reward)
@@ -736,7 +740,7 @@ class Environment():
         return PNM
 
 
-    def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour,agentID):
+    def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour,agentID, scalarization):
         costReward = []
         emissionsReward = []
         for agent in _agents_:
@@ -895,11 +899,11 @@ class Environment():
         elif h1 != 0 and h2 == 0:
             violationPenalty = (abs(h1 + 1)*self.U1[11]) * C
         elif h1 == 0 and h2 != 0:
-            violationPenalty = (abs(h2 + 1)*self.U1[11]) * C
+            violationPenalty = (abs(h2 + 1)*self.U2[11]) * C
         elif h1 == 0 and h2 == 0:
             violationPenalty = 0
         elif h1 !=0 and h2 !=0:
-            violationPenalty = (C * ((abs(h1 + 1)*self.U1[11]))) + (C * ((abs(h2 + 1) * self.U1[11])))
+            violationPenalty = (C * ((abs(h1 + 1)*self.U1[11]))) + (C * ((abs(h2 + 1) * self.U2[11])))
 
 
         previousAgentCost = agentID.getPreviousAgentCost()
@@ -908,9 +912,9 @@ class Environment():
 
         agent_Cost = (sum(costReward) - costReward[agentID.getAgentID() - 2]) + previousAgentCost
         agentID.setPreviousAgentCost(costReward[agentID.getAgentID() - 2])
-        global_cost = sum(costReward) * 0.225
-        global_emissions = sum(emissionsReward) * 0.275
-        global_penalty = violationPenalty * 0.5
+        global_cost = sum(costReward)
+        global_emissions = sum(emissionsReward)
+        global_penalty = violationPenalty
         G_z = global_cost + global_emissions + global_penalty
         agent_Emissions = (sum(emissionsReward) - emissionsReward[agentID.getAgentID() - 2]) + previousAgentEmissions
         agentID.setPreviousAgentEmissions(emissionsReward[agentID.getAgentID() - 2])
@@ -952,31 +956,36 @@ class Environment():
             violationPenalty_D = (C * ((abs(h1 + 1) * self.U1[11]))) + (C * ((abs(h2 + 1) * self.U1[11])))
 
 
+        if scalarization == "hypervolume":
+            overallCostReward = (sum(costReward) - agent_Cost)
+            overallEmissionsReward = (sum(emissionsReward) - agent_Emissions)
+            overallPenalty = (violationPenalty - violationPenalty_D)
 
-        overallCostReward = ((agent_Cost)) * 0.225
-        overallEmissionsReward = ((agent_Emissions)) * 0.275
-        overallPenalty = (violationPenalty_D) * 0.5
+        elif scalarization == "linear":
+            overallCostReward = (sum(costReward) - agent_Cost) * 0.225
+            overallEmissionsReward = (sum(emissionsReward) - agent_Emissions) * 0.275
+            overallPenalty = (violationPenalty - violationPenalty_D) * 0.5
 
         G_z_i = overallCostReward + overallEmissionsReward + overallPenalty
+        reward = -(G_z_i)
 
-        reward = -(G_z - G_z_i)
-        if agentID.getAgentID() == 2:
-            print("Current PDM", PDM)
-            print("Hour: ", hour)
-            print("Previous Agent Cost: ", previousAgentCost)
-            print("Current Agent Cost: ", costReward[agentID.getAgentID() - 2])
-            print("Current Agent Cost: ", costReward[agentID.getAgentID() - 2])
-            print("P1M G: ", P1M)
-            print("P1M D: ", P1M_D)
-            print("P1M Minus D: ", P1M_minus_D)
-            print("Violation Penalty G: ", violationPenalty)
-            print("Violation Penalty D:", violationPenalty_D)
-            print("Cost: ", overallCostReward)
-            print("Emissions: ", overallEmissionsReward)
-            print("Penalty: ", overallPenalty)
-            print("Reward: ",reward)
+        #if agentID.getAgentID() == 2:
+        #    print("Current PDM", PDM)
+        #    print("Hour: ", hour)
+        #    print("Previous Agent Cost: ", previousAgentCost)
+        #    print("Current Agent Cost: ", costReward[agentID.getAgentID() - 2])
+        #    print("Current Agent Cost: ", costReward[agentID.getAgentID() - 2])
+        #    print("P1M G: ", P1M)
+        #    print("P1M D: ", P1M_D)
+        #    print("P1M Minus D: ", P1M_minus_D)
+        #    print("Violation Penalty G: ", violationPenalty)
+        #    print("Violation Penalty D:", violationPenalty_D)
+        #    print("Cost: ", overallCostReward)
+        #    print("Emissions: ", overallEmissionsReward)
+        #    print("Penalty: ", overallPenalty)
+        #    print("Reward: ",reward)
 
-        fileName = ("DEED_Problem_Difference_Reward_" + self.timestamp + ".txt")
+        fileName = ("DEED_Problem_Difference_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
         line1 = '***************** Episode: ' + str(x) + ' ***********************'
         line2 = '***************** Hour: ' + str(i) + ' ***********************'
         line3 = "Reward: " + str(reward)
@@ -998,7 +1007,7 @@ class Environment():
 
         return reward, sum(costReward), sum(emissionsReward)
 
-    def timeStep(self, _agents_, j, rewardType):
+    def timeStep(self, _agents_, j, rewardType, scalarization):
         hour = 1
         b = 0
         costTotal = []
@@ -1034,7 +1043,8 @@ class Environment():
             #print("PNM::: ", Pnm)
             P1M = self.getP1M(Pnm, CurrentPDM)
             if rewardType == "Global":
-                reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M, hour)
+                reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
+                                                                     hour, scalarization)
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
                 rewardTotal.append(reward)
@@ -1046,7 +1056,7 @@ class Environment():
                 action = agent.getAction()
                 if rewardType == "Difference":
                     reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
-                                                                        hour,agent)
+                                                                        hour,agent, scalarization)
                 currentState = agent.getNextState(hour, agent.powerArray, agent)
                 agent.saveCurrentState(currentState)
                 agent.updateQTable(previousState, action, currentState, reward, agent)
@@ -1089,7 +1099,7 @@ def costGraph(df):
     costG = (ggplot(df) +
             geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
             geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
-            scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 5000)) +
+            scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
             scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
             ylab(" Cost ($ x 10^6) ") +
             xlab(" Episode ") +
@@ -1121,7 +1131,7 @@ def graph(df):
 
 
 def main():
-    numEpisodes = 2500
+    numEpisodes = 1000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
@@ -1145,7 +1155,7 @@ def main():
         rewardArrayGlobal, rewardArrayDifference = [], []
 
         while starter <= numAgents:
-            agentGlobal = envGlobal.createAgent((600), starter + 1)
+            agentGlobal = envGlobal.createAgent((250), starter + 1)
             agentDifference = envDifference.createAgent((250), starter + 1)
             starter = starter + 1
             _agentsGlobal_.append(agentGlobal)
@@ -1154,8 +1164,8 @@ def main():
         while j <= numEpisodes:
             print("Episode:", j)
 
-            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global")
-            costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference")
+            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "linear")
+            costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear")
 
             #for agent in _agentsGlobal_:
                 #agent.decayEpsilon()
