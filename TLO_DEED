@@ -380,12 +380,7 @@ class Agent:
         while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
 
-            if hour == 1:
-                valueQ = agent.qTable[state][int(action)][objective]
-                agent.action_holder.append(valueQ)
-                agent.action_.append(action)
-
-            elif agent.getAgentID() == 2:
+            if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
                         valueQ = agent.qTable[state][int(action)][objective]
                         agent.action_holder.append(valueQ)
@@ -446,14 +441,15 @@ class Agent:
         bestAction = []
         bestAction.append(0)
         while a < len(self.action_holder):
-            print(" ")
-            print("*************************************************")
-            print("Length of Action Holder: ", len(self.action_holder))
-            print("Action Holder: ", self.action_holder)
-            compareResult = self.compare(self.action_holder[a], self.action_holder[bestAction[0]], self.thresholds)
-            print("Action Holder A: ", self.action_holder[a])
-            print("Aciton Index: ",self.action_holder[bestAction.index(0)])
-            print("Compare Result: ", compareResult)
+            #print(" ")
+            #print("*************************************************")
+            #print("Length of Action Holder: ", len(self.action_holder))
+            #print("Action Holder: ", self.action_holder)
+            index = bestAction[0]
+            compareResult = self.compare(self.action_holder[a], self.action_holder[index], self.thresholds)
+            #print("Action Holder A: ", self.action_holder[a])
+            #print("Aciton Index: ",self.action_holder[bestAction.index(0)])
+            #print("Compare Result: ", compareResult)
             if compareResult > 0:
                 bestAction = []
                 bestAction.append(a)
@@ -461,14 +457,14 @@ class Agent:
                 bestAction.append(a)
             elif compareResult < 0:
                 bestAction.append(a)
-            print("A: ", a)
-            print("Best Action: ", bestAction)
+            #print("A: ", a)
+            #print("Best Action: ", bestAction)
             a = a + 1
         #print()
         if len(bestAction) > 1:
             return bestAction[0]
         elif len(bestAction) == 1:
-            return bestAction
+            return bestAction[0]
         #return bestAction[0]
 
     def getMaxValuedAction(self, agent, state, objective):
@@ -1354,16 +1350,16 @@ class Environment():
                 currentState = agent.getNextState(hour, agent.powerArray, agent)
                 agent.saveCurrentState(currentState)
                 #print(objective)
-                if rewardType == "Global" and objective == 0:
-                    reward = violationReward
-                    print("Reward: ", reward)
-                    agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
-                elif rewardType == "Global" and objective == 1:
-                    reward = costReward
-                    agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
-                elif rewardType == "Global" and objective == 2:
-                    reward = emissionsReward
-                    agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
+                #if rewardType == "Global" and objective == 0:
+                #    reward = violationReward
+                    #print("Reward: ", reward)
+                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
+                #elif rewardType == "Global" and objective == 1:
+                #    reward = costReward
+                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
+                #elif rewardType == "Global" and objective == 2:
+                #    reward = emissionsReward
+                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
 
                 agent.updateQTable(previousState, action, currentState, reward, agent, objective)
                 i = i + 1
@@ -1478,11 +1474,12 @@ def main():
         print("*************** Run " + str(inc) + " ***************")
         objective = 0
         while objective < 3:
+            j = 1
             while j <= numEpisodes:
                 print("Episode:", j)
-                print("Hello: ", int(objective))
+                #print("Hello: ", int(objective))
                 costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "linear", int(objective))
-                costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear", vint(objective))
+                costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear", int(objective))
                 costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j,"Local", "linear", int(objective))
 
                 #for agent in _agentsGlobal_:
@@ -1510,6 +1507,7 @@ def main():
                 rewardArrayLocal.append(rewardLocal)
 
                 j = j + 1
+            objective = objective + 1
 
         costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
         emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
