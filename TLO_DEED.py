@@ -57,7 +57,7 @@ class Agent:
         self.action = 0
         self.maxQ = 0
         self.stateVector = 0
-        self.thresholds = self.initialiseThresholds(3, 0, -100, -2700000)
+        self.thresholds = self.initialiseThresholds(3, 0, -100, -6000)
         self.action_holder = []
         self.action_ = []
         self.dReward = 0
@@ -73,7 +73,7 @@ class Agent:
         return self
 
     def decayEpsilon(self):
-        self.epsilon = self.epsilon * 0.995
+        self.epsilon = self.epsilon * 0.99
         return self.epsilon
 
     def decayAlpha(self):
@@ -114,11 +114,11 @@ class Agent:
         return self.P1M_Minus
 
     def initialiseQvalue(self, numStates, numActions, numObjectives):
-        self.qTable = np.zeros((numStates, numActions, numObjectives))
+        self.qTable = np.zeros((numStates, numActions))
         return self.qTable
 
     def initialiseVectorQvalue(self, numStates, numActions, numObjectives):
-        self.VectorQTable = np.zeros((numStates, numActions, numObjectives), dtype=object)
+        self.VectorQTable = np.zeros((numStates, numActions), dtype=object)
         return self.VectorQTable
 
     def initialiseThresholds(self, numObjectives, objective1Threshold, objective2Threshold, objective3Threshold):
@@ -138,17 +138,17 @@ class Agent:
         emissions = float(emissions)
         cost = float(cost)
         violation = float(violation)
-        oldQ = self.qTable[previousState][selectedAction][objective]
+        oldQ = self.qTable[previousState][selectedAction]
         maxQ = self.getMaxQValue(agent, currentState, objective)
         newQ = oldQ + self.alpha * (reward + self.gamma * maxQ) - oldQ
-        self.qTable[previousState][selectedAction][objective] = newQ
+        self.qTable[previousState][selectedAction] = newQ
         array = []
         #array.append(emissions)
         array.append(violation)
         array.append(cost)
         #array = np.array(array_, object)
         #print("Array: ", array)
-        self.VectorQTable[previousState][selectedAction][objective] = array
+        self.VectorQTable[previousState][selectedAction] = array
 
         return self
 
@@ -272,7 +272,9 @@ class Agent:
             selectedAction = self.selectrandomAction()
         elif objective == 0:
             selectedAction = self.getSelectedAction(hour, state, agent, objective)
-        else:
+        elif objective == 1:
+            selectedAction = self.selectTLOAction(hour, state, agent, objective)
+        elif objective == 2:
             selectedAction = self.selectTLOAction(hour, state, agent, objective)
 
         return selectedAction
@@ -302,62 +304,58 @@ class Agent:
         while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
 
-            if hour == 1:
-                valueQ = agent.qTable[state][int(action)][objective]
-                agent.action_holder.append(valueQ)
-                agent.action_.append(action)
 
-            elif agent.getAgentID() == 2:
+            if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
-                        valueQ = agent.qTable[state][int(action)][objective]
+                        valueQ = agent.qTable[state][int(action)]
                         agent.action_holder.append(valueQ)
                         agent.action_.append(action)
 
             elif agent.getAgentID() == 3:
                 if testAction - previousPowerOutput <= self.U3[12] and previousPowerOutput - testAction <= self.U3[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 4:
                 if testAction - previousPowerOutput <= self.U4[12] and previousPowerOutput - testAction <= self.U4[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 5:
                 if testAction - previousPowerOutput <= self.U5[12] and previousPowerOutput - testAction <= self.U5[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 6:
                 if testAction - previousPowerOutput <= self.U6[12] and previousPowerOutput - testAction <= self.U6[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 7:
                 if testAction - previousPowerOutput <= self.U7[12] and previousPowerOutput - testAction <= self.U7[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 8:
                 if testAction - previousPowerOutput <= self.U8[12] and previousPowerOutput - testAction <= self.U8[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 9:
                 if testAction - previousPowerOutput <= self.U9[12] and previousPowerOutput - testAction <= self.U9[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 10:
                 if testAction - previousPowerOutput <= self.U10[12] and previousPowerOutput - testAction <= self.U10[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ = self.qTable[state][int(action)]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
@@ -395,20 +393,22 @@ class Agent:
         while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
             if objective == 0:
-                objective_ = objective
-            else:
-                objective_ = objective - 1
+                objective_ = 0
+            elif objective ==1:
+                objective_ = 0
+            elif objective == 2:
+                objective_ = 1
+
 
             if objective == 1:
                 vectorObjective = 0
             elif objective == 2:
                 vectorObjective = 1
-            elif objective == 3:
-                vectorObjective = 2
 
             if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
+                        print(valueQ)
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -420,7 +420,7 @@ class Agent:
 
             elif agent.getAgentID() == 3:
                 if testAction - previousPowerOutput <= self.U3[12] and previousPowerOutput - testAction <= self.U3[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -431,7 +431,7 @@ class Agent:
 
             elif agent.getAgentID() == 4:
                 if testAction - previousPowerOutput <= self.U4[12] and previousPowerOutput - testAction <= self.U4[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -442,7 +442,7 @@ class Agent:
 
             elif agent.getAgentID() == 5:
                 if testAction - previousPowerOutput <= self.U5[12] and previousPowerOutput - testAction <= self.U5[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -453,7 +453,7 @@ class Agent:
 
             elif agent.getAgentID() == 6:
                 if testAction - previousPowerOutput <= self.U6[12] and previousPowerOutput - testAction <= self.U6[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -464,7 +464,7 @@ class Agent:
 
             elif agent.getAgentID() == 7:
                 if testAction - previousPowerOutput <= self.U7[12] and previousPowerOutput - testAction <= self.U7[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -475,7 +475,7 @@ class Agent:
 
             elif agent.getAgentID() == 8:
                 if testAction - previousPowerOutput <= self.U8[12] and previousPowerOutput - testAction <= self.U8[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -486,7 +486,7 @@ class Agent:
 
             elif agent.getAgentID() == 9:
                 if testAction - previousPowerOutput <= self.U9[12] and previousPowerOutput - testAction <= self.U9[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -497,7 +497,7 @@ class Agent:
 
             elif agent.getAgentID() == 10:
                 if testAction - previousPowerOutput <= self.U10[12] and previousPowerOutput - testAction <= self.U10[13]:
-                        valueQ = self.VectorQTable[state][int(action)][objective_]
+                        valueQ = self.VectorQTable[state][int(action)]
                         if valueQ == 0:
                             self.action_holder.append(valueQ)
                             self.action_.append(action)
@@ -545,7 +545,7 @@ class Agent:
         self.action_holders = []
         action = 0
         while action < self.numActions:
-            valueQ = self.qTable[state][action][objective]
+            valueQ = self.qTable[state][action]
             self.action_holders.append(valueQ)
             action = action + 1
 
@@ -819,7 +819,6 @@ class Environment():
         else:
             h1 = 0
 
-
         if hour == 1 and x == 1:
             P1M_minus = 0
             self.P1M_Array.append(P1M)
@@ -955,7 +954,6 @@ class Environment():
             n=n+1
 
         PLM = sum(A_array)
-
 
         return PLM
 
@@ -1563,7 +1561,7 @@ def graph(df):
              theme(axis_text_x=element_text(size=6)))
 
 def main():
-    numEpisodes = 2000
+    numEpisodes = 1000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
