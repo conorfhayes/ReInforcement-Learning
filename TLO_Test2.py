@@ -150,6 +150,7 @@ class Agent:
             maxQ = self.getMaxQValue(agent, currentState, objective)
             newQ = oldQ + self.alpha * (reward + self.gamma * maxQ) - oldQ
             self.qTable[previousState][selectedAction][objective] = newQ
+            i = i + 1
 
         return self
 
@@ -365,79 +366,18 @@ class Agent:
         return int(maxActionIndex)
 
     def compare(self, a, b, thresholds, objective):
-        if objective == 2:
-            print("A: ", a)
-            print("B: ", b)
-            print(b_array)
-            print("A Array: ", a_array)
-        vectorCheckValue1 = -10000000
-        vectorCheckValue2 = -10000000
 
-        if objective == 1:
-            thresholdA = min(a, thresholds[])
-            thresholdB = min(b, thresholds[1])
+        for i in range(len(a)):
+           thresholdA = min(a[i], thresholds[i])
+           thresholdB = min(b[i], thresholds[i])
 
-        if a != 0:
-            vectorCheckA = a_array[-1]
-            vectorCheckValueA1 = vectorCheckA[0]
-            vectorCheckValueA2 = vectorCheckA[1]
-            #print(vectorCheckValueA1)
-
-        if b != 0:
-            vectorCheckB = b_array
-            vectorCheckValueB1 = vectorCheckB[0]
-            vectorCheckValueB2 = vectorCheckB[1]
-
-        if objective == 2 and vectorCheckValueA1 > -10000:
-            thresholdA = min(vectorCheckValueA2, thresholds[2])
-            thresholdB = min(vectorCheckValueB2, thresholds[2])
-
-        if objective == 2 and a == 0:
-            thresholdA = min(a, thresholds[2])
-            thresholdB = min(b, thresholds[2])
-
-        else:
-            return 0
-
-        if thresholdA > thresholdB:
-            return 1
-        elif thresholdA < thresholdB:
-            return -1
-
-        #if objective == 2 and a != 0:
-        #    vectorCheck = a_array[-1]
-            #print("Vector Check:" , vectorCheck)
-        #    vectorCheckValue = vectorCheck[0]
-            #print("Vector Check Value: ", vectorCheckValue)
-        #print("Threshold: ", thresholds[objective])
-
-        #if objective == 2 and vectorCheckValue > -1000:
-        #    thresholdA = min(a, thresholds[objective])
-        #    thresholdB = min(b, thresholds[objective])
-
-        #if objective == 2 and vectorCheckValue < -1000:
-        #    thresholdA = min(a, thresholds[objective-1])
-        #    thresholdB = min(b, thresholds[objective-1])
-
-        #elif objective == 1:
-        #    thresholdA = min(a, thresholds[objective])
-        #    thresholdB = min(b, thresholds[objective])
-
-        #elif a == 0:
-        #    thresholdA = min(a, thresholds[objective])
-        #    thresholdB = min(b, thresholds[objective])
-
-
-        #print("Threshold A: ", thresholdA)
-        #print("Threshold B: ", thresholdB)
-
-        #if thresholdA > thresholdB:
-            #print("Returned 1")
-        #    return 1
-        #elif thresholdA < thresholdB:
-        #    return -1
+           if thresholdA > thresholdB:
+               return 1
+           elif thresholdA < thresholdB:
+               return -1
 
         return 0
+
 
     def selectTLOAction(self, hour, state, agent, objective):
         action = 0
@@ -456,7 +396,6 @@ class Agent:
                 objective_ = 1
             elif objective == 2:
                 objective_ = 1
-
 
             if objective == 1:
                 vectorObjective = 0
