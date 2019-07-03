@@ -145,11 +145,11 @@ class Agent:
                 reward = violation
             elif i == 1:
                 reward = cost
-                
+
             oldQ = self.qTable[previousState][selectedAction][objective]
             maxQ = self.getMaxQValue(agent, currentState, objective)
             newQ = oldQ + self.alpha * (reward + self.gamma * maxQ) - oldQ
-            self.qTable[previousState][selectedAction][objective] = newQ       
+            self.qTable[previousState][selectedAction][objective] = newQ
 
         return self
 
@@ -364,7 +364,7 @@ class Agent:
         maxActionIndex = self.action_[maxIndex]
         return int(maxActionIndex)
 
-    def compare(self, a, b, thresholds, objective, a_array, b_array):
+    def compare(self, a, b, thresholds, objective):
         if objective == 2:
             print("A: ", a)
             print("B: ", b)
@@ -374,7 +374,7 @@ class Agent:
         vectorCheckValue2 = -10000000
 
         if objective == 1:
-            thresholdA = min(a, thresholds[objective])
+            thresholdA = min(a, thresholds[])
             thresholdB = min(b, thresholds[1])
 
         if a != 0:
@@ -465,65 +465,83 @@ class Agent:
 
             if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 3:
                 if testAction - previousPowerOutput <= self.U3[12] and previousPowerOutput - testAction <= self.U3[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 4:
                 if testAction - previousPowerOutput <= self.U4[12] and previousPowerOutput - testAction <= self.U4[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 5:
                 if testAction - previousPowerOutput <= self.U5[12] and previousPowerOutput - testAction <= self.U5[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 6:
                 if testAction - previousPowerOutput <= self.U6[12] and previousPowerOutput - testAction <= self.U6[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 7:
                 if testAction - previousPowerOutput <= self.U7[12] and previousPowerOutput - testAction <= self.U7[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 8:
                 if testAction - previousPowerOutput <= self.U8[12] and previousPowerOutput - testAction <= self.U8[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 9:
                 if testAction - previousPowerOutput <= self.U9[12] and previousPowerOutput - testAction <= self.U9[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 10:
                 if testAction - previousPowerOutput <= self.U10[12] and previousPowerOutput - testAction <= self.U10[13]:
-                        valueQ = self.qTable[state][int(action)][objective]
+                        valueQ1 = self.qTable[state][int(action)][0]
+                        valueQ2 = self.qTable[state][int(action)][1]
+                        QVector = [valueQ1, valueQ2]
                         # print(valueQ)
-                        self.action_holder.append(valueQ)
+                        self.action_holder.append(QVector)
                         self.action_.append(action)
 
             action = action + 1
@@ -539,7 +557,7 @@ class Agent:
             #print("Action Holder: ", self.action_holder)
             index = bestAction[0]
             #print(self.actionVector)
-            compareResult = self.compare(self.action_holder[a], self.action_holder[index], self.thresholds, objective, self.actionVector, self.actionVector[index])
+            compareResult = self.compare(self.action_holder[a], self.action_holder[index], self.thresholds, objective)
             #print("Action Holder A: ", self.action_holder[a])
             #print("Aciton Index: ",self.action_holder[bestAction.index(0)])
             #print("Compare Result: ", compareResult)
