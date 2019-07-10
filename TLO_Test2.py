@@ -45,6 +45,7 @@ class Agent:
         self.qTable = self.initialiseQvalue(numStates, numActions, 4)
         self.VectorQTable = self.initialiseVectorQvalue(numStates, numActions, 4)
         #self.qTable = qTable
+        #self.thresholds = []
         self.selectedActions = []
         self.previousActions = []
         self.powerArray = []
@@ -58,7 +59,6 @@ class Agent:
         self.action = 0
         self.maxQ = 0
         self.stateVector = 0
-        self.thresholds = self.initialiseThresholds(2, 0, 0)
         self.action_holder = []
         self.action_ = []
         self.dReward = 0
@@ -115,7 +115,9 @@ class Agent:
         return self.P1M_Minus
 
     def initialiseQvalue(self, numStates, numActions, numObjectives):
-        self.qTable = np.zeros((numStates, numActions, numObjectives))
+        #self.qTable = np.zeros((numStates, numActions, numObjectives))
+        #self.qTable = np.full((numStates, numActions, numObjectives), -10000000000000)
+        self.qTable = np.full((numStates, numActions, numObjectives), 0)
         return self.qTable
 
     def initialiseVectorQvalue(self, numStates, numActions, numObjectives):
@@ -144,11 +146,11 @@ class Agent:
         violation = float(violation)
         i = 0
         while i < 3:
-            if i == 1:
+            if i == 2:
                 reward = violation
             elif i == 0:
                 reward = cost
-            elif i ==2:
+            elif i == 1:
                 reward = emissions
 
             oldQ = self.qTable[previousState][selectedAction][i]
@@ -266,7 +268,7 @@ class Agent:
             i += 1
 
         state = res
-        #print(state)
+        #print(currentState)
         return state
 
 
@@ -283,9 +285,12 @@ class Agent:
         return selectedAction
 
     def selectrandomAction(self):
-        self.randomAction = round(randint(0,100))
+        #actions = [10,15,20, 25, 30,35,40,45,50,55,60,65,70,75,80,85,90,95,100]
+        #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        actions = list(range(10, 100))
+        self.randomAction = round(randint(0,len(actions)-1))
 
-        return self.randomAction
+        return actions[self.randomAction]
 
     def saveCurrentState(self, currentState):
 
@@ -369,10 +374,11 @@ class Agent:
     def compare(self, a, b, thresholds):
         #print(thresholds)
         #print("A: ", a)
-        for i in range(len(thresholds)):
-           #print(a[i])
+        for i in range(len(self.thresholds)):
+           #print(self.thresholds)
            thresholdA = min(a[i], thresholds[i])
            thresholdB = min(b[i], thresholds[i])
+
            #print("Threshold A: ", thresholdA)
            #print("Threshold B: ", thresholdB)
            #print("Threshold: ", thresholds[i])
@@ -406,8 +412,12 @@ class Agent:
         self.actionVector = []
 
         previousPowerOutput = agent.powerArray[-1]
+        #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+        #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        actions = list(range(10,100))
 
-        while action < self.numActions:
+        for action in actions:
+        #while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
 
             if agent.getAgentID() == 2:
@@ -501,13 +511,13 @@ class Agent:
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
-            action = action + 1
-        maxIndex = self.action_holder.index(max(self.action_holder))
-        maxActionIndex = self.action_[maxIndex]
+            #action = action + 1
+        #maxIndex = self.action_holder.index(max(self.action_holder))
+        #maxActionIndex = self.action_[maxIndex]
         a = 1
         bestAction = []
         bestActionCheck = []
-        bestAction.append(0)
+        bestAction.append(self.action_[0])
         bestActionCheck.append(0)
         #print(self.action_holder)
         B = self.action_holder[bestActionCheck[0]]
@@ -540,6 +550,7 @@ class Agent:
             if compareResult > 0:
                 #print("******* Greater Than Zero")
                 #print("B In: ", B)
+                actionVector = self.action_holder[a]
                 bestAction = []
                 bestActionCheck = []
                 bestAction.append(self.action_[a])
@@ -558,22 +569,45 @@ class Agent:
         #print()
 
         if len(bestAction) > 1:
-            check_ = random.randint(0, len(bestAction)-1)
+            check_ = random.randint(1, len(bestAction)-1)
             #print(check_)
-            return bestAction[check_]
+
+            bestAction_ = bestAction[check_]
+            #rint(bestAction_)
+            actionVector = self.action_holder[self.action_.index(bestAction_)]
         else:
-            #print(action_)
-            #print("Best Action: ", bestAction)
-            return bestAction[0]
-        #return bestAction[0]
+            bestAction_ = bestAction[0]
+            #print("Best Action: ", bestAction_)
+            actionVector = self.action_holder[self.action_.index(bestAction_)]
+
+        aVector = 0
+        while aVector < len(self.thresholds):
+            #print(self.thresholds[aVector])
+            if aVector == 0:
+                #print("Cost Value: ", actionVector[0])
+                self.thresholds[0] = self.thresholds[0] - actionVector[0]
+            elif aVector == 1:
+                #print("Emissions Value: ", actionVector[1])
+                self.thresholds[1] = self.thresholds[1] - actionVector[1]
+            aVector = aVector + 1
+
+        #print(self.thresholds)
+
+        return bestAction_
 
     def getMaxValuedAction(self, state, i):
         self.action_holders = []
-        action = 0
-        while action < self.numActions:
+        #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+        #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        actions = list(range(10, 100))
+        #print(actions)
+
+        for action in actions:
+            #print(state)
             valueQ = self.qTable[state][action][i]
+            #print(valueQ)
             self.action_holders.append(valueQ)
-            action = action + 1
+            #action = action + 1
         #print
         maxActionIndex = self.action_holders.index(max(self.action_holders))
 
@@ -620,7 +654,7 @@ class Environment():
 
     #numAgents = 42
     epsilon = 0.05
-    gamma = 0.75
+    gamma = 1#0.75
     alpha = 0.1
     _agents_ = []
     a = Agent()
@@ -654,7 +688,7 @@ class Environment():
         self.numActions = 7
         self.numEpisodes = 10000
         self.epsilon = 0.05
-        self.gamma = 0.75
+        self.gamma = 1#0.75
         self.alpha = 0.1
         self.k = 0
         self.t = time.localtime()
@@ -900,16 +934,18 @@ class Environment():
         line5 = "Agents Power: " + str(sum(Pnm))
         line6 = "Slack Generator Power: " + str(P1M)
         line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
-        line8 = " Agents Power: " + str(Pnm)
-        line9 = "Cost: " + str(sum(costReward))
-        line10 = "Emissions: " + str(sum(emissionsReward))
-        line11 = "Violation Penalty: " + str(violationPenalty)
-        line12 = "State: " + str(type)
-        line13 = " "
+        line8 = "Agents Power: " + str(Pnm)
+        line9 = "Individual Agent Cost: " + str(costReward)
+        line10 = "Individual Agent Emissions: " + str(emissionsReward)
+        line11 = "Cost: " + str(sum(costReward))
+        line12 = "Emissions: " + str(sum(emissionsReward))
+        line13 = "Violation Penalty: " + str(violationPenalty)
+        line14 = "State: " + str(type)
+        line15 = " "
 
         with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
-            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13, line14, line15))
         out.close()
 
         return reward, overallCostReward, overallEmissionsReward, overallPenalty,  sum(costReward), sum(emissionsReward)
@@ -1413,7 +1449,7 @@ class Environment():
             for agent in _agents_:
 
                 if hour == 1 and j == 1:
-                    action_ = 10
+                    action_ = 50
                     Pn = self.getPNM(action_, agent)
                     agent.powerArray.append(Pn)
                     Pnm.append(Pn)
@@ -1570,7 +1606,7 @@ def main():
         rewardArrayGlobal, rewardArrayDifference, rewardArrayLocal = [], [], []
 
         while starter <= numAgents:
-            agentGlobal = envGlobal.createAgent((350), starter + 1)
+            agentGlobal = envGlobal.createAgent((2500), starter + 1)
             agentDifference = envDifference.createAgent((350), starter + 1)
             agentLocal = envLocal.createAgent((350), starter + 1)
             starter = starter + 1
@@ -1585,9 +1621,11 @@ def main():
         #    agent.epsilon = 0.05
             #print(agent.qTable)
         while j <= numEpisodes:
+            for agent in _agentsGlobal_:
+                agent.thresholds = agent.initialiseThresholds(2, -2400000, -6000000) # 2650011
             print("Episode:", j)
             #print("Hello: ", int(objective))
-            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "linear")
+            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume")
             #costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear", int(objective))
             #costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j,"Local", "linear", int(objective))
 
