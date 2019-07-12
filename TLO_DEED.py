@@ -145,13 +145,15 @@ class Agent:
         cost = float(cost)
         violation = float(violation)
         i = 0
-        while i < 3:
-            if i == 2:
+        while i < 4:
+            if i == 0:
                 reward = violation
-            elif i == 0:
-                reward = cost
             elif i == 1:
+                reward = cost
+            elif i == 2:
                 reward = emissions
+            elif i == 3:
+                reward = reward_
 
             oldQ = self.qTable[previousState][selectedAction][i]
             maxQ = self.getMaxQValue(currentState,i)
@@ -272,13 +274,19 @@ class Agent:
         return state
 
 
-    def selectAction(self,hour, state, agent):
+    def selectAction(self,hour, state, agent, run):
         #check = random.uniform(0,100)
         check = random.uniform(0,1)
         #print(check)
+        #print("Run: ", run)
+        #print("Hour: ", hour)
         if check < self.epsilon:
             #print(check)
             selectedAction = self.selectrandomAction()
+
+        elif run < 0:
+            selectedAction = self.getSelectedAction(hour, state, agent)
+
         else:
             selectedAction = self.selectTLOAction(hour, state, agent)
 
@@ -306,67 +314,68 @@ class Agent:
 
         self.action_holder = []
         self.action_ = []
+        actions = list(range(10, 100))
 
         previousPowerOutput = agent.powerArray[-1]
 
-        while action < self.numActions:
+        for action in actions:
             testAction = Environment.getPNM(self, action, agent)
 
             if agent.getAgentID() == 2:
                 if testAction - previousPowerOutput <= self.U2[12] and previousPowerOutput - testAction <= self.U2[13]:
-                        valueQ = agent.qTable[state][int(action)]
-                        agent.action_holder.append(valueQ)
-                        agent.action_.append(action)
+                        valueQ = self.qTable[state][int(action)][3]
+                        #print("Value Q: ", valueQ)
+                        self.action_holder.append(valueQ)
+                        self.action_.append(action)
 
             elif agent.getAgentID() == 3:
                 if testAction - previousPowerOutput <= self.U3[12] and previousPowerOutput - testAction <= self.U3[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 4:
                 if testAction - previousPowerOutput <= self.U4[12] and previousPowerOutput - testAction <= self.U4[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 5:
                 if testAction - previousPowerOutput <= self.U5[12] and previousPowerOutput - testAction <= self.U5[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 6:
                 if testAction - previousPowerOutput <= self.U6[12] and previousPowerOutput - testAction <= self.U6[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 7:
                 if testAction - previousPowerOutput <= self.U7[12] and previousPowerOutput - testAction <= self.U7[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 8:
                 if testAction - previousPowerOutput <= self.U8[12] and previousPowerOutput - testAction <= self.U8[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 9:
                 if testAction - previousPowerOutput <= self.U9[12] and previousPowerOutput - testAction <= self.U9[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
             elif agent.getAgentID() == 10:
                 if testAction - previousPowerOutput <= self.U10[12] and previousPowerOutput - testAction <= self.U10[13]:
-                        valueQ = self.qTable[state][int(action)]
+                        valueQ = self.qTable[state][int(action)][3]
                         self.action_holder.append(valueQ)
                         self.action_.append(action)
 
-            action = action + 1
         maxIndex = self.action_holder.index(max(self.action_holder))
         maxActionIndex = self.action_[maxIndex]
         return int(maxActionIndex)
@@ -1441,6 +1450,7 @@ class Environment():
         costTotal = []
         emissionTotal = []
         rewardTotal = []
+        violationTotal = []
         while hour <= 24:
             Pnm = []
             b = b+1
@@ -1459,7 +1469,7 @@ class Environment():
                     # print("Hello")
                 else:
                     currentState = agent.getState()
-                    action_ = agent.selectAction(hour, currentState, agent)
+                    action_ = agent.selectAction(hour, currentState, agent, j)
                     Pn = self.getPNM(action_, agent)
                     agent.powerArray.append(Pn)
                     Pnm.append(Pn)
@@ -1476,6 +1486,7 @@ class Environment():
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
                 rewardTotal.append(reward)
+                violationTotal.append(-violationReward)
 
             for agent in _agents_:
                 previousState = agent.getState()
@@ -1520,6 +1531,7 @@ class Environment():
         totalCost = sum(costTotal)
         totalEmissions = sum(emissionTotal)
         totalReward = sum(rewardTotal)
+        totalViolations = sum(violationTotal)
 
 
         fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
@@ -1528,13 +1540,14 @@ class Environment():
         line3 = ("Total Emissions: " + str(totalEmissions))
         line4 = ("Total Cost: " + str(totalCost))
         line5 = ("Total Reward: " + str(totalReward))
-        line6 = " "
+        line6 = ("Total Violations: " + str(totalViolations))
+        line7 = " "
 
         with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6))
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7))
         out.close()
 
-        return totalCost, totalEmissions, totalReward
+        return totalCost, totalEmissions, totalReward, totalViolations
 
 
 def costGraph(df):
@@ -1578,7 +1591,7 @@ def graph(df):
     print(cost)
 
 def main():
-    numEpisodes = 20000 #5000
+    numEpisodes = 10 #5000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
@@ -1586,6 +1599,7 @@ def main():
     inc = 1
     costArraySumGlobal = [0] * numEpisodes
     emissionsArraySumGlobal = [0] * numEpisodes
+    violationsArraySumGlobal = [0] * numEpisodes
 
     costArraySumDifference = [0] * numEpisodes
     emissionsArraySumDifference = [0] * numEpisodes
@@ -1605,9 +1619,10 @@ def main():
         costArrayGlobal, costArrayDifference, costArrayLocal = [], [], []
         emissionsArrayGlobal, emissionsArrayDifference, emissionsArrayLocal = [], [], []
         rewardArrayGlobal, rewardArrayDifference, rewardArrayLocal = [], [], []
+        violationsArrayGlobal, violationsArrayDifference, violationsArrayLocal = [], [], []
 
         while starter <= numAgents:
-            agentGlobal = envGlobal.createAgent((2500), starter + 1)
+            agentGlobal = envGlobal.createAgent((350), starter + 1)
             agentDifference = envDifference.createAgent((350), starter + 1)
             agentLocal = envLocal.createAgent((350), starter + 1)
             starter = starter + 1
@@ -1623,16 +1638,20 @@ def main():
             #print(agent.qTable)
         while j <= numEpisodes:
             for agent in _agentsGlobal_:
-                agent.thresholds = agent.initialiseThresholds(2, -2700000, -5000000) # 2650011 -2400000
+                agent.thresholds = agent.initialiseThresholds(2, -10000, -2700000) # 2650011 -2400000
             print("Episode:", j)
             #print("Hello: ", int(objective))
-            costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume")
+            costGlobal, emissionsGlobal, rewardGlobal, violationsGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume")
             #costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear", int(objective))
             #costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j,"Local", "linear", int(objective))
+            #if j < 10000:
+            #    for agent in _agentsGlobal_:
+            #        agent.decayEpsilon()
 
-            #for agent in _agentsGlobal_:
-                #agent.decayEpsilon()
-                # agent.decayAlpha()
+            #if j == 5000:
+            #    for agent in _agentsGlobal_:
+            #        agent.epsilon = 0.05
+
 
             #for agent in _agentsDifference_:
                 #agent.decayEpsilon()
@@ -1644,6 +1663,7 @@ def main():
 
             costArrayGlobal.append(costGlobal)
             emissionsArrayGlobal.append(emissionsGlobal)
+            violationsArrayGlobal.append(violationsGlobal)
             rewardArrayGlobal.append(rewardGlobal)
 
             #costArrayDifference.append(costDifference)
@@ -1659,6 +1679,7 @@ def main():
 
         costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
         emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
+        violationsArraySumGlobal = [x + y for x, y in zip(violationsArraySumGlobal, violationsArrayGlobal)]
 
         #costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
         #emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
@@ -1669,6 +1690,7 @@ def main():
         inc = inc + 1
     myInt = 1
     outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
+    outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
     #outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
 
     #outAvgCostDifference = [x / myInt for x in costArraySumDifference]
@@ -1679,6 +1701,7 @@ def main():
 
     scaleAvgCostGlobal = [j/1000000 for j in outAvgCostGlobal]
     #scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
+    scaleAvgViolcationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
 
     #scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
     #scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
@@ -1693,9 +1716,11 @@ def main():
     #print(rewardCost)
     #costGraph(rewardCost)
     reward1 = pd.DataFrame({'plot':scaleAvgCostGlobal})
+    reward2 = pd.DataFrame({'plot': scaleAvgViolcationsGlobal})
     #reward2 = pd.DataFrame({'plot': scaleAvgCostDifference})
     #reward3 = pd.DataFrame({'plot': scaleAvgCostLocal})
     graph(reward1)
+    graph(reward2)
     #graph(reward2)
     #graph(reward3)
     #emissionsGraph(scaleAvgEmissions)
