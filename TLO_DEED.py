@@ -115,9 +115,9 @@ class Agent:
         return self.P1M_Minus
 
     def initialiseQvalue(self, numStates, numActions, numObjectives):
-        #self.qTable = np.zeros((numStates, numActions, numObjectives))
+        self.qTable = np.zeros((numStates, numActions, numObjectives))
         #self.qTable = np.full((numStates, numActions, numObjectives), -10000000000000)
-        self.qTable = np.full((numStates, numActions, numObjectives), 0)
+        #self.qTable = np.full((numStates, numActions, numObjectives), 0)
         return self.qTable
 
     def initialiseVectorQvalue(self, numStates, numActions, numObjectives):
@@ -158,6 +158,10 @@ class Agent:
             oldQ = self.qTable[previousState][selectedAction][i]
             maxQ = self.getMaxQValue(currentState,i)
             newQ = oldQ + self.alpha * (reward + self.gamma * maxQ - oldQ)
+            newQ_dataframe = pd.DataFrame({'newQ': [newQ]})
+            newQ_dataframe['newQ_int'] = newQ_dataframe['newQ'].astype('int64')
+            #print(newQ_dataframe['newQ_int'].to_string(index=False))
+            newQ_ = newQ_dataframe['newQ_int'].iloc[0]
             self.qTable[previousState][selectedAction][i] = newQ
             i = i + 1
 
@@ -1591,7 +1595,7 @@ def graph(df):
     print(cost)
 
 def main():
-    numEpisodes = 10 #5000
+    numEpisodes = 20000 #5000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
