@@ -740,6 +740,7 @@ class Environment():
     def calculateLocalReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour, agentID, scalarization):
         costReward = []
         emissionsReward = []
+        #print("Number of Agents: ", len(_agents_))
         for agent in _agents_:
             a_id = agent.getAgentID()
             id = a_id - 2
@@ -788,6 +789,7 @@ class Environment():
                 cost = self.U10[2] + (self.U10[3] * (Pnm[id])) + (self.U10[4] * (Pnm[id] ** 2)) + abs(
                     self.U10[5] * math.sin(self.U10[6] * (self.U10[0] - Pnm[id])))
                 costReward.append(cost)
+                #print("Agent 10 Cost: ", cost)
 
             if agent.getAgentID() == 2:
                 E = 10
@@ -852,18 +854,23 @@ class Environment():
                 emissions = E * eqn10
                 emissionsReward.append(emissions)
 
-            P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U1[4] * (P1M ** 2)) + abs(
-                self.U1[5] * math.sin(self.U1[6] * (self.U1[0] - P1M)))
-            costReward.append(P1M_cost)
+        P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U1[4] * (P1M ** 2)) + abs(
+            self.U1[5] * math.sin(self.U1[6] * (self.U1[0] - P1M)))
+        costReward.append(P1M_cost)
 
-            E = 10
-            eqn_ = self.U1[7] + (self.U1[8] * P1M) + (self.U1[9] * (P1M ** 2)) + (
-                    self.U1[10] * (math.exp(self.U1[11] * P1M)))
-            P1M_emissions = E * eqn_
-            emissionsReward.append(P1M_emissions)
+        E = 10
+        eqn_ = self.U1[7] + (self.U1[8] * P1M) + (self.U1[9] * (P1M ** 2)) + (
+                self.U1[10] * (math.exp(self.U1[11] * P1M)))
+        P1M_emissions = E * eqn_
+        emissionsReward.append(P1M_emissions)
 
-        cost = costReward[agent.getAgentID() - 1]
-        emissions = emissionsReward[agent.getAgentID() - 1]
+        cost = costReward[agentID.getAgentID() - 2]
+        emissions = emissionsReward[agentID.getAgentID() - 2]
+        #print(agentID.getAgentID())
+        #print(costReward)
+        #print("Length of Cost Reward: ", len(costReward))
+        #print("Supposed Cost: ", cost)
+        #print(" ")
         #print("Cost: ", cost)
         #print("Emissions: ", emissions)
         if scalarization == "hypervolume":
@@ -1261,28 +1268,36 @@ class Environment():
 
 
 def costGraph(df, numEpisodes):
-    x_axis = np.arange(0, numEpisodes, 50)
+    x_axis = np.arange(0, numEpisodes, 200)
     print(x_axis)
-    df['counter'] = x_axis
+    df['Counter'] = x_axis
     print(df[0:])
-    x = df['counter']
+    x = df['Counter']
+    df1 = df.melt(id_vars=["Counter"], var_name="Reward", value_name="Value")
+    print(df1)
 
-    costG = (ggplot(df) +
-            geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
-            geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
-            geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color='blue') +
+    costG = (ggplot(df1) +
+            aes(x=df1['Counter'], y=df1['Value'], color = df1['Reward']) +
+            geom_line(alpha=0.75, size=0.5) +
+            #geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color= df['difference']) +
+            #geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color= df['local']) +
             scale_x_continuous(lim = (0, max(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
-            scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
+            scale_y_continuous(lim = (2.5, max(df1['Value'])), breaks = np.arange(2.5, max(df1['Value']) + 0.2, 0.2)) +
             ylab(" Cost ($ x 10^6) ") +
             xlab(" Episode ") +
             ggtitle(" ") +
             theme_matplotlib() +
             theme(axis_text_y = element_text(size =6)) +
-            theme(axis_text_x=element_text(size=6)))
+            theme(axis_text_x=element_text(size=6)) +
+            theme(legend_position="top",
+            legend_text=element_text(size=8),
+            legend_key=element_rect(colour="white", fill="white"),
+            legend_title=element_blank()))
+
     print(costG)
 
 def graphCost(df, numEpisodes):
-    x_axis = np.arange(0, numEpisodes, 50)
+    x_axis = np.arange(0, numEpisodes, 200)
     print("X Axis: ", x_axis)
     df['counter'] = x_axis
     print(df[0:])
@@ -1298,8 +1313,12 @@ def graphCost(df, numEpisodes):
              xlab(" Episode ") +
              ggtitle(" ") +
              theme_matplotlib() +
+             theme(legend_position="bottom", legend_text=element_text(size=8),
+                  legend_key=element_rect(colour="white", fill="white"), legend_title=element_blank()) +
              theme(axis_text_y=element_text(size=6)) +
              theme(axis_text_x=element_text(size=6)))
+             #theme(legend_position="bottom",legend_text=element_text(size=8),legend_key=element_rect(colour="white", fill="white"), legend_title=element_blank()))
+
     print(cost)
 
 def split(a, n):
@@ -1309,7 +1328,7 @@ def split(a, n):
 def computeAverage(array):
     newArray = []
     for i in array:
-        average = (sum(i)) / 50
+        average = (sum(i)) / 200
         #print("Values: ", i)
         #print("Average: ", average)
         newArray.append(average)
@@ -1317,7 +1336,7 @@ def computeAverage(array):
     return newArray
 
 def main():
-    numEpisodes = 1000
+    numEpisodes = 20000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
@@ -1332,7 +1351,7 @@ def main():
     costArraySumLocal = [0] * numEpisodes
     emissionsArraySumLocal = [0] * numEpisodes
 
-    while inc <= 1:
+    while inc <= 10:
         j = 1
         envGlobal = Environment()
         envDifference = Environment()
@@ -1395,7 +1414,7 @@ def main():
         emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
 
         inc = inc + 1
-    myInt = 1
+    myInt = 10
     outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
     #outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
     outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
@@ -1424,7 +1443,7 @@ def main():
     # print(rewardCost)
     # costGraph(rewardCost)
 
-    span = len(scaleAvgCostDifference) / 50
+    span = len(scaleAvgCostDifference) / 200
     pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
     #pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
 
@@ -1460,7 +1479,7 @@ def main():
 
     graphCost(CostReward3, numEpisodes)
 
-    rewardCost = pd.DataFrame({'global': AverageCostGlobal, 'difference': AverageCostDifference, 'local' : AverageCostLocal})
+    rewardCost = pd.DataFrame({'Global (+)': AverageCostGlobal, 'Difference (+)': AverageCostDifference, 'Local (+)' : AverageCostLocal})
     #rewardEmissions = pd.DataFrame({'global': AverageViolationsGlobal, 'difference': AverageViolationsDifference})
 
     costGraph(rewardCost, numEpisodes)
