@@ -372,7 +372,6 @@ class Environment():
     global alpha
 
     numActions = 101
-    numEpisodes = 10000
 
     #numAgents = 42
     epsilon = 0.05
@@ -408,7 +407,6 @@ class Environment():
 
     def __init__(self):
         self.numActions = 7
-        self.numEpisodes = 10000
         self.epsilon = 0.05
         self.gamma = 1
         self.alpha = 0.1
@@ -739,6 +737,162 @@ class Environment():
 
         return PNM
 
+    def calculateLocalReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour, agentID, scalarization):
+        costReward = []
+        emissionsReward = []
+        for agent in _agents_:
+            a_id = agent.getAgentID()
+            id = a_id - 2
+
+            if agent.getAgentID() == 2:
+                cost = self.U2[2] + (self.U2[3] * (Pnm[id])) + (self.U2[4] * (Pnm[id] ** 2)) + abs(
+                    self.U2[5] * math.sin(self.U2[6] * (self.U2[0]-Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 3:
+                cost = self.U3[2] + (self.U3[3] * (Pnm[id])) + (self.U3[4] * (Pnm[id] ** 2)) + abs(
+                    self.U3[5] * math.sin(self.U3[6] * (self.U3[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 4:
+                cost = self.U4[2] + (self.U4[3] * (Pnm[id])) + (self.U4[4] * (Pnm[id] ** 2)) + abs(
+                    self.U4[5] * math.sin(self.U4[6] * (self.U4[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 5:
+                cost = self.U5[2] + (self.U5[3] * (Pnm[id])) + (self.U5[4] * (Pnm[id] ** 2)) + abs(
+                    self.U5[5] * math.sin(self.U5[6] * (self.U5[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 6:
+                cost = self.U6[2] + (self.U6[3] * (Pnm[id])) + (self.U6[4] * (Pnm[id] ** 2)) + abs(
+                    self.U6[5] * math.sin(self.U6[6] * (self.U6[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 7:
+                cost = self.U7[2] + (self.U7[3] * (Pnm[id])) + (self.U7[4] * (Pnm[id] ** 2)) + abs(
+                    self.U7[5] * math.sin(self.U7[6] * (self.U7[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 8:
+                cost = self.U8[2] + (self.U8[3] * (Pnm[id])) + (self.U8[4] * (Pnm[id] ** 2)) + abs(
+                    self.U8[5] * math.sin(self.U8[6] * (self.U8[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 9:
+                cost = self.U9[2] + (self.U9[3] * (Pnm[id])) + (self.U9[4] * (Pnm[id] ** 2)) + abs(
+                    self.U9[5] * math.sin(self.U9[6] * (self.U9[0] - Pnm[id])))
+                costReward.append(cost)
+
+            elif agent.getAgentID() == 10:
+                cost = self.U10[2] + (self.U10[3] * (Pnm[id])) + (self.U10[4] * (Pnm[id] ** 2)) + abs(
+                    self.U10[5] * math.sin(self.U10[6] * (self.U10[0] - Pnm[id])))
+                costReward.append(cost)
+
+            if agent.getAgentID() == 2:
+                E = 10
+                eqn2 = self.U2[7] + (self.U2[8] * Pnm[id]) + (self.U2[9] * (Pnm[id]**2)) + (
+                            self.U2[10] * math.exp(self.U2[11] * Pnm[id]))
+                emissions = E * eqn2
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 3:
+                E = 10
+                eqn3 = self.U3[7] + (self.U3[8] * Pnm[id]) + (self.U3[9] * (Pnm[id]**2)) + (
+                            self.U3[10] * math.exp(self.U3[11] * Pnm[id]))
+                emissions = E * eqn3
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 4:
+                E = 10
+                eqn4 = self.U4[7] + (self.U4[8] * Pnm[id]) + (self.U4[9] * (Pnm[id]**2)) + (
+                            self.U4[10] * math.exp(self.U4[11] * Pnm[id]))
+                emissions = E * eqn4
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 5:
+                E = 10
+                eqn5 = self.U5[7] + (self.U5[8] * Pnm[id]) + (self.U5[9] * (Pnm[id]**2)) + (
+                            self.U5[10] * math.exp(self.U5[11] * Pnm[id]))
+                emissions = E * eqn5
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 6:
+                E = 10
+                eqn6 = self.U6[7] + (self.U6[8] * Pnm[id]) + (self.U6[9] * (Pnm[id]**2)) + (
+                            self.U6[10] * math.exp(self.U6[11] * Pnm[id]))
+                emissions = E * eqn6
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 7:
+                E = 10
+                eqn7 = self.U7[7] + (self.U7[8] * Pnm[id]) + (self.U7[9] * (Pnm[id]**2)) + (
+                            self.U7[10] * math.exp(self.U7[11] * Pnm[id]))
+                emissions = E * eqn7
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 8:
+                E = 10
+                eqn8 = self.U8[7] + (self.U8[8] * Pnm[id]) + (self.U8[9] * (Pnm[id]**2)) + (
+                            self.U8[10] * math.exp(self.U8[11] * Pnm[id]))
+                emissions = E * eqn8
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 9:
+                E = 10
+                eqn9 = self.U9[7] + (self.U9[8] * Pnm[id]) + (self.U9[9] * (Pnm[id]**2)) + (
+                            self.U9[10] * math.exp(self.U9[11] * Pnm[id]))
+                emissions = E * eqn9
+                emissionsReward.append(emissions)
+
+            elif agent.getAgentID() == 10:
+                E = 10
+                eqn10 = self.U10[7] + (self.U10[8] * Pnm[id]) + (self.U10[9] * (Pnm[id]**2)) + (
+                            self.U10[10] * math.exp(self.U10[11] * Pnm[id]))
+                emissions = E * eqn10
+                emissionsReward.append(emissions)
+
+            P1M_cost = self.U1[2] + (self.U1[3] * (P1M)) + (self.U1[4] * (P1M ** 2)) + abs(
+                self.U1[5] * math.sin(self.U1[6] * (self.U1[0] - P1M)))
+            costReward.append(P1M_cost)
+
+            E = 10
+            eqn_ = self.U1[7] + (self.U1[8] * P1M) + (self.U1[9] * (P1M ** 2)) + (
+                    self.U1[10] * (math.exp(self.U1[11] * P1M)))
+            P1M_emissions = E * eqn_
+            emissionsReward.append(P1M_emissions)
+
+        cost = costReward[agent.getAgentID() - 1]
+        emissions = emissionsReward[agent.getAgentID() - 1]
+        #print("Cost: ", cost)
+        #print("Emissions: ", emissions)
+        if scalarization == "hypervolume":
+            reward = -(cost + emissions)
+
+        elif scalarization == "linear":
+            reward = -((cost * 0.225) + (emissions * 0.275))
+
+        fileName = ("DEED_Problem_Local_Reward_" + scalarization + "_Scalarization_" + self.timestamp + ".txt")
+        line1 = '***************** Episode: ' + str(x) + ' ***********************'
+        line2 = '***************** Hour: ' + str(i) + ' ***********************'
+        line3 = "Reward: " + str(reward)
+        line4 = "Power: " + str(PDM)
+        line5 = "Agents Power: " + str(sum(Pnm))
+        line6 = "Slack Generator Power: " + str(P1M)
+        line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+        line8 = " Agents Power: " + str(Pnm)
+        line9 = "Cost: " + str(cost)
+        line10 = "Emissions: " + str(emissions)
+        line11 = "State: " + str(type)
+        line12 = " "
+
+        with open(fileName, 'a') as out:
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12))
+        out.close()
+        #print(reward)
+        return reward, sum(costReward), sum(emissionsReward)
+
 
     def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour,agentID, scalarization):
         costReward = []
@@ -1004,7 +1158,7 @@ class Environment():
             out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
             line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
         out.close()
-
+        #print(reward)
         return reward, sum(costReward), sum(emissionsReward)
 
     def timeStep(self, _agents_, j, rewardType, scalarization):
@@ -1045,6 +1199,7 @@ class Environment():
             if rewardType == "Global":
                 reward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
                                                                      hour, scalarization)
+                #print("Global::" , cost)
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
                 rewardTotal.append(reward)
@@ -1057,16 +1212,33 @@ class Environment():
                 if rewardType == "Difference":
                     reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
                                                                         hour,agent, scalarization)
+                    #print("Difference hello: ", cost)
+
+                if rewardType == "Local":
+                    reward, cost, emissions = self.calculateLocalReward(j, b, _agents_, Pnm, previousState,
+                                                                             CurrentPDM, P1M,
+                                                                             hour, agent, scalarization)
+                    #print("Local1: ", reward)
                 currentState = agent.getNextState(hour, agent.powerArray, agent)
                 agent.saveCurrentState(currentState)
                 agent.updateQTable(previousState, action, currentState, reward, agent)
+
                 i = i + 1
 
             hour = hour + 1
             if rewardType == "Difference":
+                #print("Difference: ", cost)
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
                 rewardTotal.append(reward)
+
+            if rewardType == "Local":
+                #print("Local: ", cost)
+                emissionTotal.append(emissions)
+                costTotal.append(cost)
+                rewardTotal.append(reward)
+
+
 
         totalCost = sum(costTotal)
         totalEmissions = sum(emissionTotal)
@@ -1088,7 +1260,7 @@ class Environment():
         return totalCost, totalEmissions, totalReward
 
 
-def costGraph(df):
+def costGraph(df, numEpisodes):
     x_axis = np.arange(0, numEpisodes, 50)
     print(x_axis)
     df['counter'] = x_axis
@@ -1099,7 +1271,7 @@ def costGraph(df):
             geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
             geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
             geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color='blue') +
-            scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
+            scale_x_continuous(lim = (0, max(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
             scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
             ylab(" Cost ($ x 10^6) ") +
             xlab(" Episode ") +
@@ -1107,6 +1279,7 @@ def costGraph(df):
             theme_matplotlib() +
             theme(axis_text_y = element_text(size =6)) +
             theme(axis_text_x=element_text(size=6)))
+    print(costG)
 
 def graphCost(df, numEpisodes):
     x_axis = np.arange(0, numEpisodes, 50)
@@ -1156,29 +1329,37 @@ def main():
     costArraySumDifference = [0] * numEpisodes
     emissionsArraySumDifference = [0] * numEpisodes
 
+    costArraySumLocal = [0] * numEpisodes
+    emissionsArraySumLocal = [0] * numEpisodes
+
     while inc <= 1:
         j = 1
         envGlobal = Environment()
         envDifference = Environment()
+        envLocal = Environment()
         starter = 1
         _agentsGlobal_ = []
         _agentsDifference_ = []
-        costArrayGlobal, costArrayDifference = [], []
-        emissionsArrayGlobal, emissionsArrayDifference = [], []
-        rewardArrayGlobal, rewardArrayDifference = [], []
+        _agentsLocal_ = []
+        costArrayGlobal, costArrayDifference, costArrayLocal = [], [], []
+        emissionsArrayGlobal, emissionsArrayDifference, emissionsArrayLocal = [], [], []
+        rewardArrayGlobal, rewardArrayDifference, rewardArrayLocal = [], [], []
 
         while starter <= numAgents:
             agentGlobal = envGlobal.createAgent((250), starter + 1)
             agentDifference = envDifference.createAgent((250), starter + 1)
+            agentLocal = envLocal.createAgent((250), starter + 1)
             starter = starter + 1
             _agentsGlobal_.append(agentGlobal)
             _agentsDifference_.append(agentDifference)
+            _agentsLocal_.append(agentLocal)
         print("*************** Run " + str(inc) + " ***************")
         while j <= numEpisodes:
             print("Episode:", j)
 
             costGlobal, emissionsGlobal, rewardGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "linear")
             costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear")
+            costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j, "Local", "linear")
 
             #for agent in _agentsGlobal_:
                 #agent.decayEpsilon()
@@ -1196,42 +1377,46 @@ def main():
             emissionsArrayDifference.append(emissionsDifference)
             rewardArrayDifference.append(rewardDifference)
 
+            costArrayLocal.append(costLocal)
+            emissionsArrayLocal.append(emissionsLocal)
+            rewardArrayLocal.append(rewardLocal)
+
             j = j + 1
 
         costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
         emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
-        violationsArraySumGlobal = [x + y for x, y in zip(violationsArraySumGlobal, violationsArrayGlobal)]
+        #violationsArraySumGlobal = [x + y for x, y in zip(violationsArraySumGlobal, violationsArrayGlobal)]
 
         costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
         emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
-        violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
+        #violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
 
-        # costArraySumLocal = [x + y for x, y in zip(costArraySumLocal, costArrayLocal)]
-        # emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
+        costArraySumLocal = [x + y for x, y in zip(costArraySumLocal, costArrayLocal)]
+        emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
 
         inc = inc + 1
     myInt = 1
     outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
-    outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
+    #outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
     outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
 
     outAvgCostDifference = [x / myInt for x in costArraySumDifference]
     outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
-    outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
+    #outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
 
-    # outAvgCostLocal = [x / myInt for x in costArraySumLocal]
-    # outAvgEmissionsLocal = [x / myInt for x in emissionsArraySumLocal]
+    outAvgCostLocal = [x / myInt for x in costArraySumLocal]
+    outAvgEmissionsLocal = [x / myInt for x in emissionsArraySumLocal]
 
     scaleAvgCostGlobal = [j / 1000000 for j in outAvgCostGlobal]
     scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
-    scaleAvgViolcationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
+    #scaleAvgViolcationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
 
     scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
     scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
-    scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
+    #scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
 
-    # scaleAvgCostLocal = [j / 1000000 for j in outAvgCostLocal]
-    # scaleAvgEmissionsLocal = [j / 1000000 for j in outAvgEmissionsLocal]
+    scaleAvgCostLocal = [j / 1000000 for j in outAvgCostLocal]
+    scaleAvgEmissionsLocal = [j / 1000000 for j in outAvgEmissionsLocal]
 
     # rewardCost = pd.DataFrame({'global':scaleAvgCostGlobal , 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
     # rewardEmissions = pd.DataFrame({'global': scaleAvgCostGlobal, 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
@@ -1241,33 +1426,44 @@ def main():
 
     span = len(scaleAvgCostDifference) / 50
     pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
-    pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
+    #pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
 
     AverageCostDifference = computeAverage(pointAverageCostDifference)
-    AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
+    #AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
 
     CostReward1 = pd.DataFrame({'plot': AverageCostDifference})
-    ViolationsReward1 = pd.DataFrame({'plot': AverageViolationsDifference})
+    #ViolationsReward1 = pd.DataFrame({'plot': AverageViolationsDifference})
 
     pointAverageCostGlobal = list(split(scaleAvgCostGlobal, int(span)))
-    pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
+    #pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
 
     AverageCostGlobal = computeAverage(pointAverageCostGlobal)
-    AverageViolationsGlobal = computeAverage(pointAverageViolationsGlobal)
+    #AverageViolationsGlobal = computeAverage(pointAverageViolationsGlobal)
 
     CostReward2 = pd.DataFrame({'plot': AverageCostGlobal})
-    ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsGlobal})
+    #ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsGlobal})
+
+    pointAverageCostLocal = list(split(scaleAvgCostLocal, int(span)))
+    # pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
+
+    AverageCostLocal = computeAverage(pointAverageCostLocal)
+    # AverageViolationsGlobal = computeAverage(pointAverageViolationsGlobal)
+
+    CostReward2 = pd.DataFrame({'plot': AverageCostGlobal})
+    CostReward3 = pd.DataFrame({'plot' : AverageCostLocal})
 
     graphCost(CostReward1, numEpisodes)
-    graphViolations(ViolationsReward1, numEpisodes)
+    #graphViolations(ViolationsReward1, numEpisodes)
 
     graphCost(CostReward2, numEpisodes)
-    graphViolations(ViolationsReward2, numEpisodes)
+    #graphViolations(ViolationsReward2, numEpisodes)
 
-    rewardCost = pd.DataFrame({'global': AverageCostGlobal, 'difference': AverageCostDifference})
-    rewardEmissions = pd.DataFrame({'global': AverageViolationsGlobal, 'difference': AverageViolationsDifference})
+    graphCost(CostReward3, numEpisodes)
 
-    costGraph(rewardCost)
+    rewardCost = pd.DataFrame({'global': AverageCostGlobal, 'difference': AverageCostDifference, 'local' : AverageCostLocal})
+    #rewardEmissions = pd.DataFrame({'global': AverageViolationsGlobal, 'difference': AverageViolationsDifference})
+
+    costGraph(rewardCost, numEpisodes)
     # graph(reward2)
     # graph(reward3)
     # emissionsGraph(scaleAvgEmissions)
