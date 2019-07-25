@@ -1089,16 +1089,16 @@ class Environment():
 
 
 def costGraph(df):
-    x_axis = np.array(range(0, len(df.index)))
+    x_axis = np.arange(0, numEpisodes, 50)
     print(x_axis)
     df['counter'] = x_axis
     print(df[0:])
     x = df['counter']
-    #y = costDataframe
 
     costG = (ggplot(df) +
             geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
             geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
+            geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color='blue') +
             scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
             scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
             ylab(" Cost ($ x 10^6) ") +
@@ -1107,20 +1107,20 @@ def costGraph(df):
             theme_matplotlib() +
             theme(axis_text_y = element_text(size =6)) +
             theme(axis_text_x=element_text(size=6)))
-    print(costG)
 
-def graph(df):
-    x_axis = np.array(range(0, len(df.index)))
-    print(x_axis)
+def graphCost(df, numEpisodes):
+    x_axis = np.arange(0, numEpisodes, 50)
+    print("X Axis: ", x_axis)
     df['counter'] = x_axis
     print(df[0:])
     x = df['counter']
+    print("DataFrame: ", df)
     # y = costDataframe
 
     cost = (ggplot(df) +
-             geom_line(aes(x='x', y=df['plot']), alpha=0.5, size=0.5, color='green') +
-             scale_x_continuous(lim=(0, len(x_axis)), breaks=range(0, len(x_axis) + 5000, 5000)) +
-             scale_y_continuous(lim=(2.5, max(df['plot'])), breaks=np.arange(2.5, max(df['plot']) + 0.2, 0.2)) +
+             geom_line(aes(x=df['counter'], y=df['plot']), alpha=0.5, size=0.5, color='green') +
+             scale_x_continuous(lim=(0, max(x_axis)), breaks=range(0, max(x_axis) + 5000, 5000)) +
+             scale_y_continuous(lim=(0, max(df['plot'])), breaks=np.arange(2.5, max(df['plot']) + 0.2, 0.2)) +
              ylab(" Cost ($ x 10^6) ") +
              xlab(" Episode ") +
              ggtitle(" ") +
@@ -1129,6 +1129,19 @@ def graph(df):
              theme(axis_text_x=element_text(size=6)))
     print(cost)
 
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+def computeAverage(array):
+    newArray = []
+    for i in array:
+        average = (sum(i)) / 50
+        #print("Values: ", i)
+        #print("Average: ", average)
+        newArray.append(average)
+
+    return newArray
 
 def main():
     numEpisodes = 1000
@@ -1187,36 +1200,78 @@ def main():
 
         costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
         emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
+        violationsArraySumGlobal = [x + y for x, y in zip(violationsArraySumGlobal, violationsArrayGlobal)]
 
         costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
         emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
+        violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
+
+        # costArraySumLocal = [x + y for x, y in zip(costArraySumLocal, costArrayLocal)]
+        # emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
 
         inc = inc + 1
     myInt = 1
     outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
-    #outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
+    outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
+    outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
 
     outAvgCostDifference = [x / myInt for x in costArraySumDifference]
-    #outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
+    outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
+    outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
 
-    scaleAvgCostGlobal = [j/1000000 for j in outAvgCostGlobal]
-    #scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
+    # outAvgCostLocal = [x / myInt for x in costArraySumLocal]
+    # outAvgEmissionsLocal = [x / myInt for x in emissionsArraySumLocal]
+
+    scaleAvgCostGlobal = [j / 1000000 for j in outAvgCostGlobal]
+    scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
+    scaleAvgViolcationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
 
     scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
-    #scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
-    #outAvgReward = [y / myInt for y in AvgReward]
+    scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
+    scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
 
-    rewardCost = pd.DataFrame({'global':scaleAvgCostGlobal , 'difference': scaleAvgCostDifference})
-    rewardEmissions = pd.DataFrame({'global': scaleAvgCostGlobal, 'difference': scaleAvgCostDifference})
+    # scaleAvgCostLocal = [j / 1000000 for j in outAvgCostLocal]
+    # scaleAvgEmissionsLocal = [j / 1000000 for j in outAvgEmissionsLocal]
 
-    #print(rewardCost)
+    # rewardCost = pd.DataFrame({'global':scaleAvgCostGlobal , 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
+    # rewardEmissions = pd.DataFrame({'global': scaleAvgCostGlobal, 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
+
+    # print(rewardCost)
+    # costGraph(rewardCost)
+
+    span = len(scaleAvgCostDifference) / 50
+    pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
+    pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
+
+    AverageCostDifference = computeAverage(pointAverageCostDifference)
+    AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
+
+    CostReward1 = pd.DataFrame({'plot': AverageCostDifference})
+    ViolationsReward1 = pd.DataFrame({'plot': AverageViolationsDifference})
+
+    pointAverageCostGlobal = list(split(scaleAvgCostGlobal, int(span)))
+    pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
+
+    AverageCostGlobal = computeAverage(pointAverageCostGlobal)
+    AverageViolationsGlobal = computeAverage(pointAverageViolationsGlobal)
+
+    CostReward2 = pd.DataFrame({'plot': AverageCostGlobal})
+    ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsGlobal})
+
+    graphCost(CostReward1, numEpisodes)
+    graphViolations(ViolationsReward1, numEpisodes)
+
+    graphCost(CostReward2, numEpisodes)
+    graphViolations(ViolationsReward2, numEpisodes)
+
+    rewardCost = pd.DataFrame({'global': AverageCostGlobal, 'difference': AverageCostDifference})
+    rewardEmissions = pd.DataFrame({'global': AverageViolationsGlobal, 'difference': AverageViolationsDifference})
+
     costGraph(rewardCost)
-    reward1 = pd.DataFrame({'plot':scaleAvgCostGlobal})
-    reward2 = pd.DataFrame({'plot': scaleAvgCostDifference})
-    graph(reward1)
-    graph(reward2)
-    #emissionsGraph(scaleAvgEmissions)
-    #metric(outAvgReward)
+    # graph(reward2)
+    # graph(reward3)
+    # emissionsGraph(scaleAvgEmissions)
+    # metric(outAvgReward)
 
 if __name__ == "__main__":
     main()
