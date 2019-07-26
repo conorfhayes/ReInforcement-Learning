@@ -1,6 +1,7 @@
 # link to paper where problem and rewards were presented 
 # https://www.aaai.org/ocs/index.php/AAAI/AAAI13/paper/download/6263/7274
 
+
 import numpy as np
 import math
 from random import randint
@@ -10,13 +11,14 @@ import matplotlib.pyplot as plt
 class Agent:
 
     qTable = []
-    actions = []
+    actions = [] # PM: is this used to track the action history?
 
     def Agent(self, numActions, alpha, gamma, epsilon):
         self.numActions = numActions
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
+		# PM: Why use 2 different qTables? There is also self.qValues below?
         qTable, old_qTable = self.initialiseQvalue(numActions)
         self.qTable = qTable
         self.old_qTable = old_qTable
@@ -42,8 +44,10 @@ class Agent:
 
     #def updateQTable(self, previousState, selectedAction,reward):
 
+	# PM: What does "i" do in this function? Episode number?
     def updateQTable(self,selectedAction, reward, i):
         #oldQ = self.old_qTable[previousState]
+		# PM: oldQ = qValues[selectedAction]
         if i <= 1:
             oldQ = 0
         elif i == 2:
@@ -51,9 +55,9 @@ class Agent:
         else:
             oldQ = self.qValues[-2]
         #oldQ = self.old_qTable[selectedAction]
-        maxQ = max(self.qTable)
-        newQ = oldQ + self.alpha * (reward + (self.gamma * maxQ) - oldQ)
-        self.qValues.append(newQ)
+        maxQ = max(self.qTable) # PM: As the Bar Problem is single-shot, maxQ will always be = 0 (i.e. there is no next state)
+        newQ = oldQ + self.alpha * (reward + (self.gamma * 0) - oldQ)
+        self.qValues.append(newQ) # PM: Why append a new value? The newQ value will replace the oldQ value. e.g. self.qValues[selectedAction] = newQ
         #self.old_qTable = self.qTable
         self.qTable[selectedAction] = newQ
 
@@ -136,6 +140,7 @@ class Environment():
 
     numActions = 7
     numEpisodes = 4000
+    numAgents = 70
     epsilon = 0.1
     gamma = 1
     alpha = 0.1
@@ -147,7 +152,7 @@ class Environment():
         self.numEpisodes = 4000
         self.numAgents = 42
         self.epsilon = 0.2
-        self.gamma = 0.9 #1
+        self.gamma = 1
         self.alpha = 0.1
         self.k = 0
         self.t = time.localtime()
@@ -390,7 +395,7 @@ class Environment():
             performance_.append(performance)
 
         rewards = sum(rewards_)
-        totPerformance = (sum(performance_))/self.numAgents
+        totPerformance = (sum(performance_))/42
         return totPerformance
 
     def differenceStep(self, _agents_, i):
@@ -424,7 +429,7 @@ class Environment():
             rewards_.append(reward)
             performance_.append(performance)
 
-        totPerformance = (sum(performance_))/self.numAgents
+        totPerformance = (sum(performance_))/42
         return totPerformance
 
 def metric(globalRewardOverEpisode,localRewardOverEpisode, differenceRewardOverEpisode, numEpisodes):
@@ -448,7 +453,8 @@ def main():
     localnumAgents = 42
     globalnumAgents = 42
     differencenumAgents = 42
-
+	# PM: some other parameters could be specified from here, e.g. capacity, alpha_decay_rate, epsilon_decay_rate
+	
     localEnv = Environment()
     globalEnv = Environment()
     differenceEnv = Environment()
@@ -456,7 +462,9 @@ def main():
     _localAgents_ = localEnv.createAgents(localnumAgents)
     _globalAgents_ = globalEnv.createAgents(globalnumAgents)
     _differenceAgents_ = differenceEnv.createAgents(differencenumAgents)
-    
+    print(localnumAgents)
+    print(len(_localAgents_))
+
     global fileName
     localRewardOverEpisode = []
     differenceRewardOverEpisode = []
