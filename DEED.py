@@ -1482,6 +1482,8 @@ def main():
     rewardCost = pd.DataFrame({'Global (+)': AverageCostGlobal, 'Difference (+)': AverageCostDifference, 'Local (+)' : AverageCostLocal})
     #rewardEmissions = pd.DataFrame({'global': AverageViolationsGlobal, 'difference': AverageViolationsDifference})
 
+    rewardCost.to_csv(r'DEED_Problem_Cost_Result_' + self.timestamp + '.csv')
+
     costGraph(rewardCost, numEpisodes)
     # graph(reward2)
     # graph(reward3)
