@@ -43,9 +43,9 @@ class Agent:
         self.epsilon = epsilon
         self.P1M_array = []
         self.qTable = self.initialiseQvalue(numStates, numActions, 4)
+        self.DifferenceQTable = self.initialiseDifferenceQvalue(numStates, numActions, 4)
         self.VectorQTable = self.initialiseVectorQvalue(numStates, numActions, 4)
-        #self.qTable = qTable
-        #self.thresholds = []
+        self.DifferenceVectorQTable = self.initialiseDifferenceVectorQvalue(numStates, numActions, 4)
         self.selectedActions = []
         self.previousActions = []
         self.powerArray = []
@@ -115,14 +115,20 @@ class Agent:
         return self.P1M_Minus
 
     def initialiseQvalue(self, numStates, numActions, numObjectives):
-        self.qTable = np.zeros((numStates, numActions, numObjectives))
-        #self.qTable = np.full((numStates, numActions, numObjectives), -10000000000000)
-        #self.qTable = np.full((numStates, numActions, numObjectives), 0)
+        self.qTable = np.full((numStates, numActions, numObjectives), 0)
         return self.qTable
+
+    def initialiseDifferenceQvalue(self, numStates, numActions, numObjectives):
+        self.DifferenceQTable = np.full((numStates, numActions), 0)
+        return self.DifferenceQTable
 
     def initialiseVectorQvalue(self, numStates, numActions, numObjectives):
         self.VectorQTable = np.zeros((numStates, numActions, numObjectives), dtype=object)
         return self.VectorQTable
+
+    def initialiseDifferenceVectorQvalue(self, numStates, numActions, numObjectives):
+        self.DifferenceVectorQTable = np.zeros((numStates, numActions), dtype=object)
+        return self.DifferenceVectorQTable
 
     def initialiseThresholds(self, numObjectives, objective1Threshold, objective2Threshold):
         self.thresholds = np.zeros((2))
@@ -158,11 +164,33 @@ class Agent:
             oldQ = self.qTable[previousState][selectedAction][i]
             maxQ = self.getMaxQValue(currentState,i)
             newQ = oldQ + self.alpha * (reward + self.gamma * maxQ - oldQ)
-            newQ_dataframe = pd.DataFrame({'newQ': [newQ]})
-            newQ_dataframe['newQ_int'] = newQ_dataframe['newQ'].astype('int64')
-            #print(newQ_dataframe['newQ_int'].to_string(index=False))
-            newQ_ = newQ_dataframe['newQ_int'].iloc[0]
             self.qTable[previousState][selectedAction][i] = newQ
+            i = i + 1
+
+        return self
+
+    def updateDifferenceQTable(self,previousState, selectedAction, currentState, reward_, agent, cost, emissions, violation):
+        emissions = float(emissions)
+        #print("Emissions: ",emissions)
+        #print("Cost: ", cost)
+        #print("Violation: ", violation)
+        cost = float(cost)
+        violation = float(violation)
+        i = 0
+        while i < 4:
+            if i == 0:
+                reward = violation
+            elif i == 1:
+                reward = cost
+            elif i == 2:
+                reward = emissions
+            elif i == 3:
+                reward = reward_
+
+            oldQ = self.DifferenceQTable[previousState][selectedAction]
+            maxQ = self.getMaxDifferenceQValue(currentState)
+            newQ = oldQ + self.alpha * (reward + self.gamma * maxQ - oldQ)
+            self.DifferenceQTable[previousState][selectedAction] = newQ
             i = i + 1
 
         return self
@@ -278,7 +306,7 @@ class Agent:
         return state
 
 
-    def selectAction(self,hour, state, agent, run):
+    def selectAction(self,hour, state, agent, run, reward):
         #check = random.uniform(0,100)
         check = random.uniform(0,1)
         #print(check)
@@ -288,11 +316,12 @@ class Agent:
             #print(check)
             selectedAction = self.selectrandomAction()
 
-        elif run < 0:
-            selectedAction = self.getSelectedAction(hour, state, agent)
+        #elif reward == "Difference":
+        #elif run < 0:
+        #    selectedAction = self.getSelectedAction(hour, state, agent)
 
         else:
-            selectedAction = self.selectTLOAction(hour, state, agent)
+            selectedAction = self.selectTLOAction(hour, state, agent, reward)
 
         return selectedAction
 
@@ -385,39 +414,31 @@ class Agent:
         return int(maxActionIndex)
 
     def compare(self, a, b, thresholds):
-        #print(thresholds)
-        #print("A: ", a)
-        for i in range(len(self.thresholds)):
-           #print(self.thresholds)
+
+        for i in range(len(thresholds)):
            thresholdA = min(a[i], thresholds[i])
            thresholdB = min(b[i], thresholds[i])
 
-           #print("Threshold A: ", thresholdA)
-           #print("Threshold B: ", thresholdB)
-           #print("Threshold: ", thresholds[i])
-
-           #print("Threshold B: ", thresholdB)
-
            if thresholdA > thresholdB:
-               return 1
+               return 1, i
            elif thresholdA < thresholdB:
-               return -1
+               return -1, i
 
         if a[len(thresholds)] > b[len(thresholds)]:
-            return 1
+            return 1, i
         elif a[len(thresholds)] < b[len(thresholds)]:
-            return -1
+            return -1, i
 
         for j in range(len(thresholds)):
             if a[j] > b[j]:
-                return 1
+                return 1, i
             elif a[j] < b[j]:
-                return -1
+                return -1, i
 
-        return 0
+        return 0, i
 
 
-    def selectTLOAction(self, hour, state, agent):
+    def selectTLOAction(self, hour, state, agent, reward):
         action = 0
 
         self.action_holder = []
@@ -425,12 +446,9 @@ class Agent:
         self.actionVector = []
 
         previousPowerOutput = agent.powerArray[-1]
-        #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
-        #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         actions = list(range(10,100))
 
         for action in actions:
-        #while action < self.numActions:
             testAction = Environment.getPNM(self, action, agent)
 
             if agent.getAgentID() == 2:
@@ -439,7 +457,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -449,7 +466,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -459,7 +475,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -469,7 +484,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -479,7 +493,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -489,7 +502,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -499,7 +511,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -509,7 +520,6 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
@@ -519,81 +529,71 @@ class Agent:
                         valueQ2 = self.qTable[state][int(action)][1]
                         valueQ3 = self.qTable[state][int(action)][2]
                         QVector = [valueQ1, valueQ2, valueQ3]
-                        #print(QVector)
-                        # print(valueQ)
                         self.action_holder.append(QVector)
                         self.action_.append(action)
 
-            #action = action + 1
-        #maxIndex = self.action_holder.index(max(self.action_holder))
-        #maxActionIndex = self.action_[maxIndex]
         a = 1
         bestAction = []
         bestActionCheck = []
         bestAction.append(self.action_[0])
         bestActionCheck.append(0)
-        #print(self.action_holder)
         B = self.action_holder[bestActionCheck[0]]
+
         while a < len(self.action_holder):
-            #print(" ")
-            #print(len(self.action_holder))
-            #print(len(self.action_))
-            #print("A: ", a)
-            #print("Actions: ", self.action_[a])
-            #print("*************************************************")
-            #print("Length of Action Holder: ", len(self.action_holder))
-            #print("Action Holder: ", self.action_holder)
-            #index = bestAction[0]
-            #indexCheck = bestActionCheck[0]
-            #print(indexCheck)
-            #if indexCheck != 0:
-            #    print("Not Zero")
-            #    print("Index Check: ", indexCheck)
-            #print(self.actionVector)
-            #print(self.action)
-            #print("Index: ", index)
-            #print(a)
 
+            compareResult, thresholdNum = self.compare(self.action_holder[a], B, self.thresholds)
 
-            compareResult = self.compare(self.action_holder[a], B, self.thresholds)
-            #print("Action Holder A: ", self.action_holder[a])
-            #print("Aciton Index: ",self.action_holder[bestAction.index(0)])
-            #print("Compare Result: ", compareResult)
-            #print(self.action_[a])
             if compareResult > 0:
-                #print("******* Greater Than Zero")
-                #print("B In: ", B)
                 actionVector = self.action_holder[a]
                 bestAction = []
                 bestActionCheck = []
                 bestAction.append(self.action_[a])
                 bestActionCheck.append(a)
                 B = self.action_holder[a]
-                #print("B Out: ", B)
             elif compareResult == 0:
                 bestAction.append(self.action_[a])
                 bestActionCheck.append(a)
-            #elif compareResult < 0:
-            #    bestAction.append(self.action_[a])
-            #    bestActionCheck.append(a)
-            #print("A: ", a)
-            #print("Best Action: ", bestAction)
+
             a = a + 1
-        #print()
 
         if len(bestAction) > 1:
-            check_ = random.randint(1, len(bestAction)-1)
-            #print(check_)
+            if reward == "Global":
+                check_ = random.randint(1, len(bestAction)-1)
+                #print("Global")
 
-            bestAction_ = bestAction[check_]
-            #rint(bestAction_)
-            actionVector = self.action_holder[self.action_.index(bestAction_)]
+                bestAction_ = bestAction[check_]
+                actionVector = self.action_holder[self.action_.index(bestAction_)]
+
+            elif reward == "Difference":
+
+                DifferenceActionHolder = []
+                DifferenceVectorHolder = []
+                DifferenceAction = []
+                #print("Difference")
+                for action in bestAction:
+                    value = self.DifferenceQTable[state][int(action)]
+                    #valueQ1 = self.DifferenceQTable[state][int(action)][0]
+                    #valueQ2 = self.DifferenceQTable[state][int(action)][1]
+                    #valueQ3 = self.DifferenceQTable[state][int(action)][2]
+                    QVector = [valueQ1, valueQ2, valueQ3]
+                    DifferenceActionHolder.append(value)
+                    #DifferenceVectorHolder.append(QVector)
+                    DifferenceAction.append(action)
+                #print(DifferenceActionHolder)
+                maxIndexValue = DifferenceActionHolder.index(max(DifferenceActionHolder))
+                actionVector = self.action_holder[maxIndexValue]
+                bestAction_ = DifferenceAction[maxIndexValue]
+                #print(bestAction_)
+
+                #print(actionVector)
+
         else:
             bestAction_ = bestAction[0]
             #print("Best Action: ", bestAction_)
             actionVector = self.action_holder[self.action_.index(bestAction_)]
 
         aVector = 0
+        #print(actionVector)
         while aVector < len(self.thresholds):
             #print(self.thresholds[aVector])
             if aVector == 0:
@@ -626,6 +626,25 @@ class Agent:
 
         return maxActionIndex
 
+    def getMaxValuedDifferenceAction(self, state):
+        self.action_holders = []
+        #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+        #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        actions = list(range(10, 100))
+        #print(actions)
+
+        for action in actions:
+            #print(state)
+            valueQ = self.DifferenceQTable[state][action]
+            #print(valueQ)
+            #print(valueQ)
+            self.action_holders.append(valueQ)
+            #action = action + 1
+        #print
+        maxActionIndex = self.action_holders.index(max(self.action_holders))
+
+        return maxActionIndex
+
     def find_nearest(self, array, value):
         if len(array) == 1:
             return 0
@@ -638,6 +657,10 @@ class Agent:
 
     def getMaxQValue(self,state, i):
         maxIndex = self.getMaxValuedAction(state, i)
+        return maxIndex
+
+    def getMaxDifferenceQValue(self,state):
+        maxIndex = self.getMaxValuedDifferenceAction(state)
         return maxIndex
 
     def getQTable(self):
@@ -663,7 +686,6 @@ class Environment():
     global alpha
 
     numActions = 101
-    numEpisodes = 10000
 
     #numAgents = 42
     epsilon = 0.05
@@ -699,7 +721,6 @@ class Environment():
 
     def __init__(self):
         self.numActions = 7
-        self.numEpisodes = 10000
         self.epsilon = 0.05
         self.gamma = 1#0.75
         self.alpha = 0.1
@@ -961,7 +982,7 @@ class Environment():
             line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13, line14, line15))
         out.close()
 
-        return reward, overallCostReward, overallEmissionsReward, overallPenalty,  sum(costReward), sum(emissionsReward)
+        return reward, overallCostReward, overallEmissionsReward, overallPenalty,  sum(costReward), sum(emissionsReward), "This is global"
 
     def OverallReward(self, reward):
         self.rewardArray.append(reward)
@@ -1425,30 +1446,32 @@ class Environment():
 
         G_z_i = overallCostReward + overallEmissionsReward + overallPenalty
         reward = -(G_z_i)
+        #print(agentID)
+        if agentID.getAgentID() == 2:
 
-        fileName = ("DEED_Problem_Difference_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
-        line1 = '***************** Episode: ' + str(x) + ' ***********************'
-        line2 = '***************** Hour: ' + str(i) + ' ***********************'
-        line3 = "Reward: " + str(reward)
-        line4 = "Power: " + str(PDM)
-        line5 = "Agents Power: " + str(sum(Pnm))
-        line6 = "Slack Generator Power: " + str(P1M)
-        line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
-        line8 = " Agents Power: " + str(Pnm)
-        line9 = "Cost: " + str(sum(costReward))
-        line10 = "Emissions: " + str(sum(emissionsReward))
-        line11 = "Violation Penalty: " + str(violationPenalty)
-        line12 = "State: " + str(type)
-        line13 = " "
+            fileName = ("DEED_Problem_Difference_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
+            line1 = '***************** Episode: ' + str(x) + ' ***********************'
+            line2 = '***************** Hour: ' + str(i) + ' ***********************'
+            line3 = "Reward: " + str(reward)
+            line4 = "Power: " + str(PDM)
+            line5 = "Agents Power: " + str(sum(Pnm))
+            line6 = "Slack Generator Power: " + str(P1M)
+            line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+            line8 = " Agents Power: " + str(Pnm)
+            line9 = "Cost: " + str(sum(costReward))
+            line10 = "Emissions: " + str(sum(emissionsReward))
+            line11 = "Violation Penalty: " + str(violationPenalty)
+            line12 = "State: " + str(type)
+            line13 = " "
 
-        with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
-            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
-        out.close()
+            with open(fileName, 'a') as out:
+                out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+                line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
+            out.close()
 
-        return reward, sum(costReward), sum(emissionsReward)
+        return reward, sum(costReward), sum(emissionsReward), violationPenalty
 
-    def timeStep(self, _agents_, j, rewardType, scalarization):
+    def timeStep(self, _agents_, j, rewardType, scalarization, flag):
         hour = 1
         b = 0
         costTotal = []
@@ -1473,7 +1496,7 @@ class Environment():
                     # print("Hello")
                 else:
                     currentState = agent.getState()
-                    action_ = agent.selectAction(hour, currentState, agent, j)
+                    action_ = agent.selectAction(hour, currentState, agent, j, rewardType)
                     Pn = self.getPNM(action_, agent)
                     agent.powerArray.append(Pn)
                     Pnm.append(Pn)
@@ -1485,7 +1508,8 @@ class Environment():
 
             P1M = self.getP1M(Pnm, CurrentPDM)
             if rewardType == "Global":
-                reward, costReward, emissionsReward, violationReward, cost, emissions = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
+                comment = "Actual Global"
+                reward, costReward, emissionsReward, violationReward, cost, emissions, comment = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
                                                                      hour, scalarization)
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
@@ -1496,36 +1520,32 @@ class Environment():
                 previousState = agent.getState()
                 action = agent.getAction()
                 if rewardType == "Difference":
-                    reward, cost, emissions = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
+                    comment = "Difference"
+                    reward, costReward, emissionsReward, violationReward, cost, emissions, comment = self.calculateGlobalReward(
+                        j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
+                        hour, scalarization)
+                    rewardDifference, costDifference, emissionsDifference, violationDifference = self.calculateDifferenceReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
                                                                         hour,agent, scalarization)
                 if rewardType == "Local":
                     reward, cost, emissions = self.calculateLocalReward(j, b, _agents_, Pnm, previousState, CurrentPDM, P1M,
                                                                         hour,agent, scalarization)
                 currentState = agent.getNextState(hour, agent.powerArray, agent)
                 agent.saveCurrentState(currentState)
-                #print(objective)
-                #if rewardType == "Global" and objective == 0:
-                #    reward = violationReward
-                    #print("Reward: ", reward)
-                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
-                #elif rewardType == "Global" and objective == 1:
-                #    reward = costReward
-                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
-                #elif rewardType == "Global" and objective == 2:
-                #    reward = emissionsReward
-                    #agent.updateGlobalQTable(previousState, action, currentState, reward, agent, objective)
 
-                #print(costReward)
-                #print(emissionsReward)
-                #print(violationReward)
                 agent.updateQTable(previousState, action, currentState, reward, agent, costReward, emissionsReward, violationReward)
+                if rewardType == "Difference":
+                    agent.updateDifferenceQTable(previousState, action, currentState, rewardDifference, agent, costDifference, emissionsDifference,
+                                       violationDifference)
                 i = i + 1
 
             hour = hour + 1
             if rewardType == "Difference":
-                emissionTotal.append(emissions)
-                costTotal.append(cost)
-                rewardTotal.append(reward)
+                emissionTotal.append(-emissionsReward)
+                costTotal.append(-costReward)
+                rewardTotal.append(-reward)
+                violationTotal.append(-violationReward)
+                comment = comment
+
 
             if rewardType == "Local":
                 emissionTotal.append(emissions)
@@ -1545,17 +1565,18 @@ class Environment():
         line4 = ("Total Cost: " + str(totalCost))
         line5 = ("Total Reward: " + str(totalReward))
         line6 = ("Total Violations: " + str(totalViolations))
-        line7 = " "
+        line7 = " " + str(comment)
+        line8 = " "
 
         with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7))
+            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7, line8))
         out.close()
 
         return totalCost, totalEmissions, totalReward, totalViolations
 
 
 def costGraph(df):
-    x_axis = np.array(range(0, len(df.index)))
+    x_axis = np.arange(0, numEpisodes, 50)
     print(x_axis)
     df['counter'] = x_axis
     print(df[0:])
@@ -1564,7 +1585,7 @@ def costGraph(df):
     costG = (ggplot(df) +
             geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
             geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
-             geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color='blue') +
+            geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color='blue') +
             scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
             scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.5, max(df['global']) + 0.2, 0.2)) +
             ylab(" Cost ($ x 10^6) ") +
@@ -1574,17 +1595,37 @@ def costGraph(df):
             theme(axis_text_y = element_text(size =6)) +
             theme(axis_text_x=element_text(size=6)))
 
-def graph(df):
-    x_axis = np.array(range(0, len(df.index)))
+def costTLOGraph(df):
+    x_axis = np.arange(0, numEpisodes, 200)
     print(x_axis)
     df['counter'] = x_axis
     print(df[0:])
     x = df['counter']
+
+    costG = (ggplot(df) +
+            geom_line(aes(x='x', y=df['global']),alpha=0.5, size=0.5, color =  'green') +
+            geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color='red') +
+            scale_x_continuous(lim = (0, len(x_axis)), breaks= range(0,len(x_axis)+ 5000, 500)) +
+            scale_y_continuous(lim = (2.5, max(df['global'])), breaks = np.arange(2.3, max(df['global']) + 0.2, 0.2)) +
+            ylab(" Cost ($ x 10^6) ") +
+            xlab(" Episode ") +
+            ggtitle(" ") +
+            theme_matplotlib() +
+            theme(axis_text_y = element_text(size =6)) +
+            theme(axis_text_x=element_text(size=6)))
+
+def graphCost(df, numEpisodes):
+    x_axis = np.arange(0, numEpisodes, 200)
+    print("X Axis: ", x_axis)
+    df['counter'] = x_axis
+    print(df[0:])
+    x = df['counter']
+    print("DataFrame: ", df)
     # y = costDataframe
 
     cost = (ggplot(df) +
              geom_line(aes(x=df['counter'], y=df['plot']), alpha=0.5, size=0.5, color='green') +
-             scale_x_continuous(lim=(0, len(x_axis)), breaks=range(0, len(x_axis) + 5000, 5000)) +
+             scale_x_continuous(lim=(0, max(x_axis)), breaks=range(0, max(x_axis) + 5000, 5000)) +
              scale_y_continuous(lim=(0, max(df['plot'])), breaks=np.arange(2.5, max(df['plot']) + 0.2, 0.2)) +
              ylab(" Cost ($ x 10^6) ") +
              xlab(" Episode ") +
@@ -1594,8 +1635,23 @@ def graph(df):
              theme(axis_text_x=element_text(size=6)))
     print(cost)
 
+def split(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+def computeAverage(array):
+    newArray = []
+    for i in array:
+        average = (sum(i)) / 50
+        #print("Values: ", i)
+        #print("Average: ", average)
+        newArray.append(average)
+
+    return newArray
+
+
 def main():
-    numEpisodes = 20000 #5000
+    numEpisodes = 20000
     numAgents = 9
     _agentsGlobal_ = []
     global fileName
@@ -1607,11 +1663,12 @@ def main():
 
     costArraySumDifference = [0] * numEpisodes
     emissionsArraySumDifference = [0] * numEpisodes
+    violationsArraySumDifference = [0] * numEpisodes
 
     costArraySumLocal = [0] * numEpisodes
     emissionsArraySumLocal = [0] * numEpisodes
 
-    while inc <= 1:
+    while inc <= 10:
         j = 1
         envGlobal = Environment()
         envDifference = Environment()
@@ -1643,27 +1700,16 @@ def main():
         while j <= numEpisodes:
             for agent in _agentsGlobal_:
                 agent.thresholds = agent.initialiseThresholds(2, -10000, -2700000) # 2650011 -2400000
+
+            for agent in _agentsDifference_:
+                agent.thresholds = agent.initialiseThresholds(2, -10000, -2700000)
+
             print("Episode:", j)
             #print("Hello: ", int(objective))
-            costGlobal, emissionsGlobal, rewardGlobal, violationsGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume")
-            #costDifference, emissionsDifference, rewardDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "linear", int(objective))
+            costGlobal, emissionsGlobal, rewardGlobal, violationsGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume", 0)
+            #costDifference, emissionsDifference, rewardDifference, violationsDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "hypervolume", 1)
             #costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j,"Local", "linear", int(objective))
-            #if j < 10000:
-            #    for agent in _agentsGlobal_:
-            #        agent.decayEpsilon()
 
-            #if j == 5000:
-            #    for agent in _agentsGlobal_:
-            #        agent.epsilon = 0.05
-
-
-            #for agent in _agentsDifference_:
-                #agent.decayEpsilon()
-                # agent.decayAlpha()
-
-            # for agent in _agentsLocal_:
-                # agent.decayEpsilon()
-                # agent.decayAlpha()
 
             costArrayGlobal.append(costGlobal)
             emissionsArrayGlobal.append(emissionsGlobal)
@@ -1673,6 +1719,7 @@ def main():
             #costArrayDifference.append(costDifference)
             #emissionsArrayDifference.append(emissionsDifference)
             #rewardArrayDifference.append(rewardDifference)
+            #violationsArrayDifference.append(violationsDifference)
 
             #costArrayLocal.append(costLocal)
             #emissionsArrayLocal.append(emissionsLocal)
@@ -1687,29 +1734,31 @@ def main():
 
         #costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
         #emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
+        #violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
 
         #costArraySumLocal = [x + y for x, y in zip(costArraySumLocal, costArrayLocal)]
         #emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
 
         inc = inc + 1
-    myInt = 1
+    myInt = 10
     outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
     outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
-    #outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
+    outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
 
     #outAvgCostDifference = [x / myInt for x in costArraySumDifference]
     #outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
+    #outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
 
     #outAvgCostLocal = [x / myInt for x in costArraySumLocal]
     # outAvgEmissionsLocal = [x / myInt for x in emissionsArraySumLocal]
 
     scaleAvgCostGlobal = [j/1000000 for j in outAvgCostGlobal]
-    #scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
-    scaleAvgViolcationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
+    scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
+    scaleAvgViolationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
 
     #scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
     #scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
-    #outAvgReward = [y / myInt for y in AvgReward]
+    #scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
 
     #scaleAvgCostLocal = [j / 1000000 for j in outAvgCostLocal]
     # scaleAvgEmissionsLocal = [j / 1000000 for j in outAvgEmissionsLocal]
@@ -1719,12 +1768,46 @@ def main():
 
     #print(rewardCost)
     #costGraph(rewardCost)
-    reward1 = pd.DataFrame({'plot':scaleAvgCostGlobal})
-    reward2 = pd.DataFrame({'plot': scaleAvgViolcationsGlobal})
-    #reward2 = pd.DataFrame({'plot': scaleAvgCostDifference})
-    #reward3 = pd.DataFrame({'plot': scaleAvgCostLocal})
-    graph(reward1)
-    graph(reward2)
+
+    span = len(scaleAvgCostGlobal)/200
+    #pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
+    #pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
+
+    #AverageCostDifference = computeAverage(pointAverageCostDifference)
+    #AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
+
+    #CostReward1 = pd.DataFrame({'plot':AverageCostDifference})
+    #ViolationsReward1 = pd.DataFrame({'plot': AverageViolationsDifference})
+
+    pointAverageCostGlobal = list(split(scaleAvgCostGlobal, int(span)))
+    pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
+    pointAverageEmissionsGlobal = list(split(scaleAvgEmissionsGlobal, int(span)))
+
+    AverageCostGlobal = computeAverage(pointAverageCostGlobal)
+    AverageViolationsGlobal = computeAverage(pointAverageViolationsGlobal)
+    AverageEmissionsGlobal = computeAverage(pointAverageEmissionsGlobal)
+
+    CostReward2 = pd.DataFrame({'plot': AverageCostGlobal})
+    ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsGlobal})
+    EmissionsReward2 = pd.DataFrame({'plot': AverageEmissionsGlobal})
+
+    #graphCost(CostReward1, numEpisodes)
+    #graphViolations(ViolationsReward1, numEpisodes)
+
+    graphCost(CostReward2, numEpisodes)
+    #graphViolations(ViolationsReward2, numEpisodes)
+
+    rewardCost = pd.DataFrame({'Global':AverageCostGlobal})# , 'difference': AverageCostDifference})
+    rewardViolations = pd.DataFrame({'Global': AverageViolationsGlobal}) #, 'difference': AverageViolationsDifference})
+    rewardEmissions = pd.DataFrame({'Global': AverageEmissionsGlobal})
+
+    t = time.localtime()
+    timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    rewardCost.to_csv(r'DEED_TLO_Problem_Cost_Result_' + timestamp + '.csv')
+    rewardViolations.to_csv(r'DEED_TLO_Problem_Violations_Result_' + timestamp + '.csv')
+    rewardEmissions.to_csv(r'DEED_TLO_Problem_Emissions_Result_' + timestamp + '.csv')
+
+    #costGraph(rewardCost)
     #graph(reward2)
     #graph(reward3)
     #emissionsGraph(scaleAvgEmissions)
