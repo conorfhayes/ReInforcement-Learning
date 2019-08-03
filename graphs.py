@@ -183,11 +183,13 @@ df_TLO_Cost1 = pd.read_excel("Results\TLO DEED\DiscountFactor1\TLO_DEED_Problem_
 df_TLO_Cost75 = pd.read_excel("Results\TLO DEED\DiscountFactor0.75\TLO_DEED_Problem_AllRewards_Cost_Hypervolume_DiscountFactor0.75.xlsx")
 df_Hypervolume_Cost = pd.read_excel("Results\DEED\Hypervolume\DEED_Problem_AllRewards_Cost_Hypervolume.xlsx")
 df_Linear_Cost = pd.read_excel("Results\DEED\Linear\DEED_Problem_AllRewards_Cost_Linear.xlsx")
+df_Linear_SineWave_Cost = pd.read_excel("Results\DEED\Linear\Sine Wave\DEED_Problem_AllRewards_Cost_Linear_SineWave.xlsx")
 
 df_TLO_Violations1 = pd.read_excel("Results\TLO DEED\DiscountFactor1\TLO_DEED_Problem_AllRewards_Violations_Hypervolume_DiscountFactor1.xlsx")
 df_TLO_Violations75 = pd.read_excel("Results\TLO DEED\DiscountFactor0.75\TLO_DEED_Problem_AllRewards_Violations_Hypervolume_DiscountFactor0.75.xlsx")
 df_Hypervolume_Violations = pd.read_excel("Results\DEED\Hypervolume\DEED_Problem_AllRewards_Violations_Hypervolume.xlsx")
 df_Linear_Violations = pd.read_excel("Results\DEED\Linear\DEED_Problem_AllRewards_Violations_Linear.xlsx")
+df_Linear_SineWave_Violations = pd.read_excel("Results\DEED\Linear\Sine Wave\DEED_Problem_AllRewards_Violations_Linear_SineWave.xlsx")
 
 df_TLO_Emissions1 = pd.read_excel("Results\TLO DEED\DiscountFactor1\TLO_DEED_Problem_AllRewards_Emissions_Hypervolume_DiscountFactor1 - Copy.xlsx")
 
@@ -212,6 +214,9 @@ violationsGraph(df_Hypervolume_Violations, numEpisodes)
 
 costGraph(df_Linear_Cost, numEpisodes)
 violationsGraph(df_Linear_Violations, numEpisodes)
+
+costGraph(df_Linear_SineWave_Cost, numEpisodes)
+violationsGraph(df_Linear_SineWave_Violations, numEpisodes)
 
 
 
