@@ -1,6 +1,6 @@
 # Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning.
-# A V0.4 of this implementation for my MSC thesis in Data Analytics
-# Code to be updated
+# A final version of this implementation for my MSC thesis in Data Analytics
+
 
 
 import numpy as np
@@ -328,7 +328,7 @@ class Agent:
     def selectrandomAction(self):
         #actions = [10,15,20, 25, 30,35,40,45,50,55,60,65,70,75,80,85,90,95,100]
         #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-        actions = list(range(10, 100))
+        actions = list(range(0, 100))
         self.randomAction = round(randint(0,len(actions)-1))
 
         return actions[self.randomAction]
@@ -347,7 +347,7 @@ class Agent:
 
         self.action_holder = []
         self.action_ = []
-        actions = list(range(10, 100))
+        actions = list(range(0, 100))
 
         previousPowerOutput = agent.powerArray[-1]
 
@@ -446,7 +446,7 @@ class Agent:
         self.actionVector = []
 
         previousPowerOutput = agent.powerArray[-1]
-        actions = list(range(10,100))
+        actions = list(range(0,100))
 
         for action in actions:
             testAction = Environment.getPNM(self, action, agent)
@@ -558,7 +558,7 @@ class Agent:
 
         if len(bestAction) > 1:
             if reward == "Global":
-                check_ = random.randint(1, len(bestAction)-1)
+                check_ = random.randint(0, len(bestAction)-1)
                 #print("Global")
 
                 bestAction_ = bestAction[check_]
@@ -598,6 +598,7 @@ class Agent:
             #print(self.thresholds[aVector])
             if aVector == 0:
                 #print("Cost Value: ", actionVector[0])
+                #print(actionVector[0])
                 self.thresholds[0] = self.thresholds[0] - actionVector[0]
             elif aVector == 1:
                 #print("Emissions Value: ", actionVector[1])
@@ -612,7 +613,7 @@ class Agent:
         self.action_holders = []
         #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
         #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-        actions = list(range(10, 100))
+        actions = list(range(0, 100))
         #print(actions)
 
         for action in actions:
@@ -630,7 +631,7 @@ class Agent:
         self.action_holders = []
         #actions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
         #actions = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-        actions = list(range(10, 100))
+        actions = list(range(0, 100))
         #print(actions)
 
         for action in actions:
@@ -722,7 +723,7 @@ class Environment():
     def __init__(self):
         self.numActions = 7
         self.epsilon = 0.05
-        self.gamma = 1#0.75
+        self.gamma = 1
         self.alpha = 0.1
         self.k = 0
         self.t = time.localtime()
@@ -905,7 +906,7 @@ class Environment():
         emissionsReward.append(P1M_emissions)
 
         # 1,000,000
-        C = 100000
+        C = 1000000
 
         if P1M > 470:
             h1 = P1M - 470
@@ -960,27 +961,27 @@ class Environment():
 
         #reward = (overallEmissionsReward + overallPenalty + overallCostReward)
 
-        fileName = ("DEED_Problem_Global_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
-        line1 = '***************** Episode: ' + str(x) + ' ***********************'
-        line2 = '***************** Hour: ' + str(i) + ' ***********************'
-        line3 = "Reward: " + str(reward)
-        line4 = "Power: " + str(PDM)
-        line5 = "Agents Power: " + str(sum(Pnm))
-        line6 = "Slack Generator Power: " + str(P1M)
-        line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
-        line8 = "Agents Power: " + str(Pnm)
-        line9 = "Individual Agent Cost: " + str(costReward)
-        line10 = "Individual Agent Emissions: " + str(emissionsReward)
-        line11 = "Cost: " + str(sum(costReward))
-        line12 = "Emissions: " + str(sum(emissionsReward))
-        line13 = "Violation Penalty: " + str(violationPenalty)
-        line14 = "State: " + str(type)
-        line15 = " "
+        #fileName = ("DEED_Problem_Global_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
+        #line1 = '***************** Episode: ' + str(x) + ' ***********************'
+        #line2 = '***************** Hour: ' + str(i) + ' ***********************'
+        #line3 = "Reward: " + str(reward)
+        #line4 = "Power: " + str(PDM)
+        #line5 = "Agents Power: " + str(sum(Pnm))
+        #line6 = "Slack Generator Power: " + str(P1M)
+        #line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+        #line8 = "Agents Power: " + str(Pnm)
+        #line9 = "Individual Agent Cost: " + str(costReward)
+        #line10 = "Individual Agent Emissions: " + str(emissionsReward)
+        #line11 = "Cost: " + str(sum(costReward))
+        #line12 = "Emissions: " + str(sum(emissionsReward))
+        #line13 = "Violation Penalty: " + str(violationPenalty)
+        #line14 = "State: " + str(type)
+        #line15 = " "
 
-        with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
-            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13, line14, line15))
-        out.close()
+        #with open(fileName, 'a') as out:
+        #    out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+        #    line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13, line14, line15))
+        #out.close()
 
         return reward, overallCostReward, overallEmissionsReward, overallPenalty,  sum(costReward), sum(emissionsReward), "This is global"
 
@@ -1188,24 +1189,24 @@ class Environment():
         elif scalarization == "linear":
             reward = -(cost * 0.225) + (emissions * 0.275)
 
-        fileName = ("DEED_Problem_Local_Reward_" + scalarization + "_Scalarization_" + self.timestamp + ".txt")
-        line1 = '***************** Episode: ' + str(x) + ' ***********************'
-        line2 = '***************** Hour: ' + str(i) + ' ***********************'
-        line3 = "Reward: " + str(reward)
-        line4 = "Power: " + str(PDM)
-        line5 = "Agents Power: " + str(sum(Pnm))
-        line6 = "Slack Generator Power: " + str(P1M)
-        line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
-        line8 = " Agents Power: " + str(Pnm)
-        line9 = "Cost: " + str(cost)
-        line10 = "Emissions: " + str(emissions)
-        line11 = "State: " + str(type)
-        line12 = " "
+        #fileName = ("DEED_Problem_Local_Reward_" + scalarization + "_Scalarization_" + self.timestamp + ".txt")
+        #line1 = '***************** Episode: ' + str(x) + ' ***********************'
+        #line2 = '***************** Hour: ' + str(i) + ' ***********************'
+        #line3 = "Reward: " + str(reward)
+        #line4 = "Power: " + str(PDM)
+        #line5 = "Agents Power: " + str(sum(Pnm))
+        #line6 = "Slack Generator Power: " + str(P1M)
+        #line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+        #line8 = " Agents Power: " + str(Pnm)
+        #line9 = "Cost: " + str(cost)
+        #line10 = "Emissions: " + str(emissions)
+        #line11 = "State: " + str(type)
+        #line12 = " "
 
-        with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
-            line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12))
-        out.close()
+        #with open(fileName, 'a') as out:
+        #    out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+        #    line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12))
+        #out.close()
         return reward, sum(costReward), sum(emissionsReward)
 
     def calculateDifferenceReward(self,x, i, _agents_, Pnm, type, PDM, P1M, hour,agentID, scalarization):
@@ -1353,7 +1354,7 @@ class Environment():
         emissionsReward.append(P1M_emissions)
 
         # 1,000,000
-        C = 100000
+        C = 1000000
         if P1M > 470:
             h1 = P1M - 470
         elif P1M < 150:
@@ -1403,7 +1404,7 @@ class Environment():
         agent_power = Pnm[agentID.getAgentID() - 2]
         agentID.setPreviousAgentPower(agent_power)
 
-        C = 100000
+        C = 1000000
         if P1M_D > 470:
             h1 = P1M_D - 470
         elif P1M_D < 150:
@@ -1447,31 +1448,31 @@ class Environment():
         G_z_i = overallCostReward + overallEmissionsReward + overallPenalty
         reward = -(G_z_i)
         #print(agentID)
-        if agentID.getAgentID() == 2:
+        #if agentID.getAgentID() == 2:
 
-            fileName = ("DEED_Problem_Difference_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
-            line1 = '***************** Episode: ' + str(x) + ' ***********************'
-            line2 = '***************** Hour: ' + str(i) + ' ***********************'
-            line3 = "Reward: " + str(reward)
-            line4 = "Power: " + str(PDM)
-            line5 = "Agents Power: " + str(sum(Pnm))
-            line6 = "Slack Generator Power: " + str(P1M)
-            line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
-            line8 = " Agents Power: " + str(Pnm)
-            line9 = "Cost: " + str(sum(costReward))
-            line10 = "Emissions: " + str(sum(emissionsReward))
-            line11 = "Violation Penalty: " + str(violationPenalty)
-            line12 = "State: " + str(type)
-            line13 = " "
+            #fileName = ("DEED_Problem_Difference_Reward_" + scalarization + "Scalarization_" + self.timestamp + ".txt")
+            #line1 = '***************** Episode: ' + str(x) + ' ***********************'
+            #line2 = '***************** Hour: ' + str(i) + ' ***********************'
+            #line3 = "Reward: " + str(reward)
+            #line4 = "Power: " + str(PDM)
+            #line5 = "Agents Power: " + str(sum(Pnm))
+            #line6 = "Slack Generator Power: " + str(P1M)
+            #line7 = "Overall Power Output: " + str(sum(Pnm)+ P1M)
+            #line8 = " Agents Power: " + str(Pnm)
+            #line9 = "Cost: " + str(sum(costReward))
+            #line10 = "Emissions: " + str(sum(emissionsReward))
+            #line11 = "Violation Penalty: " + str(violationPenalty)
+            #line12 = "State: " + str(type)
+            #line13 = " "
 
-            with open(fileName, 'a') as out:
-                out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
-                line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
-            out.close()
+            #with open(fileName, 'a') as out:
+            #    out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1,
+            #    line2, line3, line4, line5, line6, line7, line8, line9, line10, line11, line12, line13))
+            #out.close()
 
         return reward, sum(costReward), sum(emissionsReward), violationPenalty
 
-    def timeStep(self, _agents_, j, rewardType, scalarization, flag):
+    def timeStep(self, _agents_, j, rewardType, scalarization, flag, inc):
         hour = 1
         b = 0
         costTotal = []
@@ -1511,6 +1512,7 @@ class Environment():
                 comment = "Actual Global"
                 reward, costReward, emissionsReward, violationReward, cost, emissions, comment = self.calculateGlobalReward(j, b, _agents_, Pnm, currentState, CurrentPDM, P1M,
                                                                      hour, scalarization)
+                #print(reward)
                 emissionTotal.append(emissions)
                 costTotal.append(cost)
                 rewardTotal.append(reward)
@@ -1557,26 +1559,26 @@ class Environment():
         totalReward = sum(rewardTotal)
         totalViolations = sum(violationTotal)
 
+        if inc == 1:
+            fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
+            line1 = '***************** Episode: ' + str(j) + ' ***********************'
+            line2 = "Reward Type: " + str(rewardType)
+            line3 = ("Total Emissions: " + str(totalEmissions))
+            line4 = ("Total Cost: " + str(totalCost))
+            line5 = ("Total Reward: " + str(totalReward))
+            line6 = ("Total Violations: " + str(totalViolations))
+            line7 = " " + str(comment)
+            line8 = " "
 
-        fileName = ("DEED_Problem_Cost_Emissions" + self.timestamp + ".txt")
-        line1 = '***************** Episode: ' + str(j) + ' ***********************'
-        line2 = "Reward Type: " + str(rewardType)
-        line3 = ("Total Emissions: " + str(totalEmissions))
-        line4 = ("Total Cost: " + str(totalCost))
-        line5 = ("Total Reward: " + str(totalReward))
-        line6 = ("Total Violations: " + str(totalViolations))
-        line7 = " " + str(comment)
-        line8 = " "
-
-        with open(fileName, 'a') as out:
-            out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7, line8))
-        out.close()
+            with open(fileName, 'a') as out:
+                out.write('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n'.format(line1, line2, line3, line4, line5, line6, line7, line8))
+            out.close()
 
         return totalCost, totalEmissions, totalReward, totalViolations
 
 
 def costGraph(df):
-    x_axis = np.arange(0, numEpisodes, 50)
+    x_axis = np.arange(0, numEpisodes, 200)
     print(x_axis)
     df['counter'] = x_axis
     print(df[0:])
@@ -1642,7 +1644,7 @@ def split(a, n):
 def computeAverage(array):
     newArray = []
     for i in array:
-        average = (sum(i)) / 50
+        average = (sum(i)) / 200
         #print("Values: ", i)
         #print("Average: ", average)
         newArray.append(average)
@@ -1668,7 +1670,11 @@ def main():
     costArraySumLocal = [0] * numEpisodes
     emissionsArraySumLocal = [0] * numEpisodes
 
-    while inc <= 10:
+    outputData_Cost = pd.DataFrame()
+    outputData_Emissions = pd.DataFrame()
+    outputData_Violations = pd.DataFrame()
+
+    while inc <= 20:
         j = 1
         envGlobal = Environment()
         envDifference = Environment()
@@ -1691,23 +1697,20 @@ def main():
             _agentsDifference_.append(agentDifference)
             _agentsLocal_.append(agentLocal)
         print("*************** Run " + str(inc) + " ***************")
-        #while objective < 3:
         j = 1
-        #print("******************************* Objective: " + str(objective) + " ***************************************")
-        #for agent in _agentsGlobal_:
-        #    agent.epsilon = 0.05
-            #print(agent.qTable)
+
         while j <= numEpisodes:
             for agent in _agentsGlobal_:
-                agent.thresholds = agent.initialiseThresholds(2, -10000, -2700000) # 2650011 -2400000
+                agent.thresholds = agent.initialiseThresholds(2, -10000000, -2800000) # 2650011 -2400000
+                #23500992
 
             for agent in _agentsDifference_:
-                agent.thresholds = agent.initialiseThresholds(2, -10000, -2700000)
+                agent.thresholds = agent.initialiseThresholds(2, -10000000, -2800000)
 
             print("Episode:", j)
             #print("Hello: ", int(objective))
-            costGlobal, emissionsGlobal, rewardGlobal, violationsGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume", 0)
-            #costDifference, emissionsDifference, rewardDifference, violationsDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "hypervolume", 1)
+            costGlobal, emissionsGlobal, rewardGlobal, violationsGlobal = envGlobal.timeStep(_agentsGlobal_, j, "Global", "hypervolume", 0, inc)
+            costDifference, emissionsDifference, rewardDifference, violationsDifference = envDifference.timeStep(_agentsDifference_, j, "Difference", "hypervolume", 1, inc)
             #costLocal, emissionsLocal, rewardLocal = envLocal.timeStep(_agentsLocal_, j,"Local", "linear", int(objective))
 
 
@@ -1716,69 +1719,110 @@ def main():
             violationsArrayGlobal.append(violationsGlobal)
             rewardArrayGlobal.append(rewardGlobal)
 
-            #costArrayDifference.append(costDifference)
-            #emissionsArrayDifference.append(emissionsDifference)
-            #rewardArrayDifference.append(rewardDifference)
-            #violationsArrayDifference.append(violationsDifference)
-
-            #costArrayLocal.append(costLocal)
-            #emissionsArrayLocal.append(emissionsLocal)
-            #rewardArrayLocal.append(rewardLocal)
+            costArrayDifference.append(costDifference)
+            emissionsArrayDifference.append(emissionsDifference)
+            rewardArrayDifference.append(rewardDifference)
+            violationsArrayDifference.append(violationsDifference)
 
             j = j + 1
-        #objective = objective + 1
+
+
+        Difference = 'Difference ' + str(inc)
+        outputData_Cost[Difference] = costArrayDifference
+        outputData_Emissions[Difference] = emissionsArrayDifference
+        outputData_Violations[Difference] = violationsArrayDifference
+
+        costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
+        emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
+        violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
+
+        Global = 'Global ' + str(inc)
+        outputData_Cost[Global] = costArrayGlobal
+        outputData_Emissions[Global] = emissionsArrayGlobal
+        outputData_Violations[Global] = violationsArrayGlobal
 
         costArraySumGlobal = [x + y for x, y in zip(costArraySumGlobal, costArrayGlobal)]
         emissionsArraySumGlobal = [x + y for x, y in zip(emissionsArraySumGlobal, emissionsArrayGlobal)]
         violationsArraySumGlobal = [x + y for x, y in zip(violationsArraySumGlobal, violationsArrayGlobal)]
 
-        #costArraySumDifference = [x + y for x, y in zip(costArraySumDifference, costArrayDifference)]
-        #emissionsArraySumDifference = [x + y for x, y in zip(emissionsArraySumDifference, emissionsArrayDifference)]
-        #violationsArraySumDifference = [x + y for x, y in zip(violationsArraySumDifference, violationsArrayDifference)]
-
-        #costArraySumLocal = [x + y for x, y in zip(costArraySumLocal, costArrayLocal)]
-        #emissionsArraySumLocal = [x + y for x, y in zip(emissionsArraySumLocal, emissionsArrayLocal)]
 
         inc = inc + 1
-    myInt = 10
-    outAvgCostGlobal = [y / myInt for y in costArraySumGlobal]
-    outAvgViolationsGlobal = [y / myInt for y in violationsArraySumGlobal]
-    outAvgEmissionsGlobal = [y / myInt for y in emissionsArraySumGlobal]
+    myInt = 20
 
-    #outAvgCostDifference = [x / myInt for x in costArraySumDifference]
-    #outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
-    #outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
+    outAvgCostDifference = [x / myInt for x in costArraySumDifference]
+    outAvgEmissionsDifference = [x / myInt for x in emissionsArraySumDifference]
+    outAvgViolationsDifference = [x / myInt for x in violationsArraySumDifference]
 
-    #outAvgCostLocal = [x / myInt for x in costArraySumLocal]
+    scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
+    scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
+    scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
+
+    scaleAvgCostDifference_ = pd.DataFrame({'Difference': scaleAvgCostDifference})
+    scaleAvgEmissionsDifference_ = pd.DataFrame({'Difference': scaleAvgEmissionsDifference})
+    scaleAvgViolationsDifference_ = pd.DataFrame({'Difference': scaleAvgViolationsDifference})
+
+    t = time.localtime()
+    timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    scaleAvgCostDifference_.to_csv(r'DEED_TLO_Problem_Cost_Result_Difference' + timestamp + '.csv')
+    scaleAvgViolationsDifference_.to_csv(r'DEED_TLO_Problem_Violations_Result_Difference' + timestamp + '.csv')
+    scaleAvgEmissionsDifference_.to_csv(r'DEED_TLO_Problem_Emissions_Result_Difference' + timestamp + '.csv')
+
+    outputData_Cost.to_csv('DEED_TLO_Problem_Cost_Result_Difference_All_' + timestamp + '.csv')
+    outputData_Emissions.to_csv('DEED_TLO_Problem_Emissions_Result_Difference_All_' + timestamp + '.csv')
+    outputData_Violations.to_csv('DEED_TLO_Problem_Violations_Result_Difference_All_' + timestamp + '.csv')
+
+    span = len(scaleAvgCostDifference) / 200
+    pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
+    pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
+    pointAverageEmissionsDifference = list(split(scaleAvgEmissionsDifference, int(span)))
+
+    AverageCostDifference = computeAverage(pointAverageCostDifference)
+    AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
+    AverageEmissionsDifference = computeAverage(pointAverageEmissionsDifference)
+
+    CostReward2 = pd.DataFrame({'plot': AverageCostDifference})
+    ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsDifference})
+    EmissionsReward2 = pd.DataFrame({'plot': AverageEmissionsDifference})
+
+    graphCost(CostReward2, numEpisodes)
+
+    rewardCost = pd.DataFrame({'Difference': AverageCostDifference})  # , 'Difference': AverageCostDifference})
+    rewardViolations = pd.DataFrame({'Difference': AverageViolationsDifference})  # , 'Difference': AverageViolationsDifference})
+    rewardEmissions = pd.DataFrame({'Difference': AverageEmissionsDifference})
+
+    t = time.localtime()
+    timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    rewardCost.to_csv(r'DEED_TLO_Problem_AverageCost_Result_Difference' + timestamp + '.csv')
+    rewardViolations.to_csv(r'DEED_TLO_Problem_AverageViolations_Result_Difference' + timestamp + '.csv')
+    rewardEmissions.to_csv(r'DEED_TLO_Problem_AverageEmissions_Result_Difference' + timestamp + '.csv')
+
+    # Global
+    outAvgCostGlobal = [x / myInt for x in costArraySumGlobal]
+    outAvgEmissionsGlobal = [x / myInt for x in emissionsArraySumGlobal]
+    outAvgViolationsGlobal = [x / myInt for x in violationsArraySumGlobal]
+
+    # outAvgCostLocal = [x / myInt for x in costArraySumLocal]
     # outAvgEmissionsLocal = [x / myInt for x in emissionsArraySumLocal]
 
-    scaleAvgCostGlobal = [j/1000000 for j in outAvgCostGlobal]
+    scaleAvgCostGlobal = [j / 1000000 for j in outAvgCostGlobal]
     scaleAvgEmissionsGlobal = [j / 1000000 for j in outAvgEmissionsGlobal]
     scaleAvgViolationsGlobal = [j / 1000000 for j in outAvgViolationsGlobal]
 
-    #scaleAvgCostDifference = [j / 1000000 for j in outAvgCostDifference]
-    #scaleAvgEmissionsDifference = [j / 1000000 for j in outAvgEmissionsDifference]
-    #scaleAvgViolationsDifference = [j / 1000000 for j in outAvgViolationsDifference]
+    scaleAvgCostGlobal_ = pd.DataFrame({'Global': scaleAvgCostGlobal})
+    scaleAvgEmissionsGlobal_ = pd.DataFrame({'Global': scaleAvgEmissionsGlobal})
+    scaleAvgViolationsGlobal_ = pd.DataFrame({'Global': scaleAvgViolationsGlobal})
 
-    #scaleAvgCostLocal = [j / 1000000 for j in outAvgCostLocal]
-    # scaleAvgEmissionsLocal = [j / 1000000 for j in outAvgEmissionsLocal]
+    t = time.localtime()
+    timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    scaleAvgCostGlobal_.to_csv(r'DEED_TLO_Problem_Cost_Result_Global' + timestamp + '.csv')
+    scaleAvgViolationsGlobal_.to_csv(r'DEED_TLO_Problem_Violations_Result_Global' + timestamp + '.csv')
+    scaleAvgEmissionsGlobal_.to_csv(r'DEED_TLO_Problem_Emissions_Result_Global' + timestamp + '.csv')
 
-    #rewardCost = pd.DataFrame({'global':scaleAvgCostGlobal , 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
-    #rewardEmissions = pd.DataFrame({'global': scaleAvgCostGlobal, 'difference': scaleAvgCostDifference, 'local': scaleAvgCostLocal})
+    outputData_Cost.to_csv('DEED_TLO_Problem_Cost_Result_Global_All_' + timestamp + '.csv')
+    outputData_Emissions.to_csv('DEED_TLO_Problem_Emissions_Result_Global_All_' + timestamp + '.csv')
+    outputData_Violations.to_csv('DEED_TLO_Problem_Violations_Result_Global_All_' + timestamp + '.csv')
 
-    #print(rewardCost)
-    #costGraph(rewardCost)
-
-    span = len(scaleAvgCostGlobal)/200
-    #pointAverageCostDifference = list(split(scaleAvgCostDifference, int(span)))
-    #pointAverageViolationsDifference = list(split(scaleAvgViolationsDifference, int(span)))
-
-    #AverageCostDifference = computeAverage(pointAverageCostDifference)
-    #AverageViolationsDifference = computeAverage(pointAverageViolationsDifference)
-
-    #CostReward1 = pd.DataFrame({'plot':AverageCostDifference})
-    #ViolationsReward1 = pd.DataFrame({'plot': AverageViolationsDifference})
-
+    span = len(scaleAvgCostGlobal) / 200
     pointAverageCostGlobal = list(split(scaleAvgCostGlobal, int(span)))
     pointAverageViolationsGlobal = list(split(scaleAvgViolationsGlobal, int(span)))
     pointAverageEmissionsGlobal = list(split(scaleAvgEmissionsGlobal, int(span)))
@@ -1791,27 +1835,25 @@ def main():
     ViolationsReward2 = pd.DataFrame({'plot': AverageViolationsGlobal})
     EmissionsReward2 = pd.DataFrame({'plot': AverageEmissionsGlobal})
 
-    #graphCost(CostReward1, numEpisodes)
-    #graphViolations(ViolationsReward1, numEpisodes)
-
     graphCost(CostReward2, numEpisodes)
-    #graphViolations(ViolationsReward2, numEpisodes)
 
-    rewardCost = pd.DataFrame({'Global':AverageCostGlobal})# , 'difference': AverageCostDifference})
-    rewardViolations = pd.DataFrame({'Global': AverageViolationsGlobal}) #, 'difference': AverageViolationsDifference})
+    rewardCost = pd.DataFrame({'Global': AverageCostGlobal})  # , 'Global': AverageCostGlobal})
+    rewardViolations = pd.DataFrame(
+        {'Global': AverageViolationsGlobal})  # , 'Global': AverageViolationsGlobal})
     rewardEmissions = pd.DataFrame({'Global': AverageEmissionsGlobal})
 
     t = time.localtime()
     timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
-    rewardCost.to_csv(r'DEED_TLO_Problem_Cost_Result_' + timestamp + '.csv')
-    rewardViolations.to_csv(r'DEED_TLO_Problem_Violations_Result_' + timestamp + '.csv')
-    rewardEmissions.to_csv(r'DEED_TLO_Problem_Emissions_Result_' + timestamp + '.csv')
+    rewardCost.to_csv(r'DEED_TLO_Problem_AverageCost_Result_Global' + timestamp + '.csv')
+    rewardViolations.to_csv(r'DEED_TLO_Problem_AverageViolations_Result_Global' + timestamp + '.csv')
+    rewardEmissions.to_csv(r'DEED_TLO_Problem_AverageEmissions_Result_Global' + timestamp + '.csv')
 
-    #costGraph(rewardCost)
-    #graph(reward2)
-    #graph(reward3)
-    #emissionsGraph(scaleAvgEmissions)
-    #metric(outAvgReward)
+    # costGraph(rewardCost)
+    # graph(reward2)
+    # graph(reward3)
+    # emissionsGraph(scaleAvgEmissions)
+    # metric(outAvgReward)
+
 
 if __name__ == "__main__":
     main()
