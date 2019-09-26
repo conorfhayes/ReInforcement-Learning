@@ -34,7 +34,7 @@ public class Main {
 			while (j <= numEpisodes)
 			{
 				System.out.println("*** Episode: " + j + " ***");
-				envGlobal.timeStep(_agentsGlobal_, j, "Difference", "linear");
+				envGlobal.timeStep(_agentsGlobal_, j, "Global", "linear");
 				j = j + 1;
 			}
 			
