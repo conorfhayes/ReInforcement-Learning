@@ -154,40 +154,50 @@ public class Environment {
 		double holder;
 		double cholder;
 		
-		int n = 2;
-		double a = this.B[0][0];
+		double sum1 = 0;
+		double sum2 = 0;
+		double sum3 = 0;
 		
-		while(n <= 10)
+		int n = 0;
+		
+		while(n <= 8)
 		{
-			holder = (this.B[0][n-1] * PNM.get(n-2));
-			B_array.add(holder);
+			sum1 = sum1 + (this.B[0][n + 1] * PNM.get(n));
 			n = n + 1;
 		}
 		
-		double b = (2 * (B_array.stream().mapToDouble(x -> x).sum()) - 1);		
-		int nn = 2;
-		int jj = 2;
+		//double b = (2 * (B_array.stream().mapToDouble(x -> x).sum())) - 1;		
+		int nn = 0;
+		int jj = 0;	
 		
-		while(nn <= 10)
+		while(nn <= 8)
 		{
-			while(jj <= 10)
+			while(jj <= 8)
 			{
-				cholder = (PNM.get(nn-2) * this.B[nn-1][jj-1] * PNM.get(nn-2));
-				C_array.add(cholder);
+				//cholder = (PNM.get(nn) * this.B[nn + 1][jj + 1] * PNM.get(nn));
+				sum2 =  sum2 + (PNM.get(nn) * this.B[nn + 1][jj + 1] * PNM.get(nn));
 				jj = jj + 1;
 			}
-			
+			sum3 = sum3 + PNM.get(nn);
 			nn = nn + 1;
 		}
 		
 		double sumPNM = PNM.stream().mapToDouble(xx -> xx).sum();
 		double sumC_array = C_array.stream().mapToDouble(y -> y).sum();
-		double c = sumC_array + currentPDM - sumPNM;
-		double d = (Math.pow(b, 2)) - (4 * a * c);
-		double totalP1MMinus = ((-b - Math.sqrt(d))/(2 * a));
-		double totalP1MPlus = ((-b + Math.sqrt(d))/(2 * a));
+		sum2 = sum2 + currentPDM - sum3;
+		//double d = (Math.pow(b, 2)) - (4 * a * c);
+		//double totalP1MMinus = ((-b - Math.sqrt(d))/(2 * a));
+		//double totalP1MPlus = ((-b + Math.sqrt(d))/(2 * a));
+		double a = this.B[0][0];
+		double b = sum1;
+		double c = sum2;
+		double root1 = (-b + Math.sqrt(Math.pow(a, 2) - 4 * a * c)) / (2 * a);
+		double root2 = (-b - Math.sqrt(Math.pow(a, 2) - 4 * a * c)) / (2 * a);
 		
-		double totalP1M = Math.min(totalP1MPlus, totalP1MMinus);
+		System.out.println(a);
+		System.out.println(b);
+		System.out.println(c);
+		double totalP1M = Math.min(root1, root2);
 		
 		return totalP1M;
 	}
@@ -241,10 +251,11 @@ public class Environment {
 	}
 	
 	public double[] calculateGlobalReward(int x, int i, ArrayList<Agent> _agents_, ArrayList<Double> PNM, 
-										  double currentState, double P1M, int hour, String scalarisation)
+										  double currentState, double P1M, int hour, String scalarisation, double previousPDM )
 	{
 		ArrayList<Double> costReward = new ArrayList<Double>();
 		ArrayList<Double> emissionsReward = new ArrayList<Double>();
+		ArrayList<Double> previousPNM = new ArrayList<Double>();
 		double P1M_minus;
 		double cost;
 		double emissions;
@@ -257,46 +268,37 @@ public class Environment {
 		int E = 10;
 		
 		for (int j = 0; j < _agents_.size(); j++)
+		{	
+			Agent agent = _agents_.get(j);			
+			int id = agent.getAgentID() - 2;
+			
+			cost = getCost(PNM, id, agent);			
+			costReward.add(cost);
+			
+			emissions = getEmissions(PNM, id, agent);			
+			emissions = E * emissions;
+			emissionsReward.add(emissions);			
+		}	
+		
+		for (int j = 0; j < _agents_.size(); j++)
+			
 		{
 			Agent agent = _agents_.get(j);
-			ArrayList<ArrayList<Double>> UHolder = agent.UHolder;
-			int id = agent.getAgentID() - 2;
-			//System.out.println("ID: " + a_id);
-			
-			//UHolder.get(id).get(0)
-			//agent.setPreviousAgentPower(PNM.get(id));
-			
-			cost = UHolder.get(id).get(2) + (UHolder.get(id).get(3) * (PNM.get(id))) +  
-				   UHolder.get(id).get(4) * (Math.pow(PNM.get(id), 2)) + Math.abs(UHolder.get(id).get(5) * 
-				   Math.sin(UHolder.get(id).get(6) * (UHolder.get(id).get(0) - PNM.get(id))));
-			
-			costReward.add(cost);			
-			
-			emissions = UHolder.get(id).get(7) + (UHolder.get(id).get(8) * PNM.get(id)) + (
-					    UHolder.get(id).get(9) * Math.pow(PNM.get(id),2)) + (
-						UHolder.get(id).get(10) * Math.exp(UHolder.get(id).get(11) * PNM.get(id)));
-			
-			emissions = E * emissions;
-			emissionsReward.add(emissions);		
-			
+			previousPNM.add(agent.getPreviousAgentPower());				
 		}
-			
+		
 		double P1M_cost;
-		
-		P1M_cost = this.U1[2] + (this.U1[3] * (P1M)) + (this.U1[4] * Math.pow(P1M,2)) + Math.abs(
-	               this.U1[5] * Math.sin(this.U1[6] * (this.U1[0] - P1M)));
-		
+		P1M_cost = getP1MCost(P1M);		
 		costReward.add(P1M_cost);
 		
-		emissions = this.U1[7] + (this.U1[8] * P1M) + (this.U1[9] * Math.pow(P1M,2)) + (
-                    this.U1[10] * (Math.exp(this.U1[11] * P1M)));
-		double P1M_emissions = E * emissions;
-		emissionsReward.add(P1M_emissions);
+		double P1M_emissions_ = getP1MEmissions(P1M);		
+		double P1M_emissions = E * P1M_emissions_;
+		emissionsReward.add(P1M_emissions);					
 		
 		int C = 1000000;
 		double h1;
 		double h2;
-		//System.out.println(P1M);
+
 		if (P1M > 470)
 		{
 			h1 = P1M - 470;
@@ -310,19 +312,7 @@ public class Environment {
 			h1 = 0;
 		}
 		
-		if (hour == 1 && x == 1)
-		{
-			P1M_minus = 150;
-			this.P1M_array.add(P1M);
-			setP1M_minus(P1M);
-		}
-		else
-		{
-			P1M_minus = getP1M_minus();;
-			setP1M_minus(P1M);
-		}
-		//System.out.println("P1M : " + P1M);
-		//System.out.println("P1M Minus: " + P1M_minus);
+		P1M_minus = getP1M(previousPNM, previousPDM);
 		
 		if (P1M - P1M_minus > 80)
 		{
@@ -360,7 +350,7 @@ public class Environment {
 		
 		if (scalarisation == "hypervolume")
 		{				
-			reward = -(overallCostReward * overallEmissionsReward * overallPenalty);
+			reward = -(overallCostReward + overallEmissionsReward + overallPenalty);
 		}
 		
 		if (scalarisation == "linear")
@@ -378,8 +368,6 @@ public class Environment {
 	public double[] calculateDifferenceReward(int x, int i, ArrayList<Agent> _agents_, Agent _agent, double currentPDM, 
 			ArrayList<Double> PNM,double currentState, double P1M, int hour, String scalarisation, double previousPDM)
 	{
-		//calculateDifferenceReward(place, b, _agentsList_, 
-		//		_agent, currentPDM, PNM, currentState,P1M, hour, this.scalarization);
 		
 		ArrayList<Double> costReward = new ArrayList<Double>();
 		ArrayList<Double> costReward_D = new ArrayList<Double>();
@@ -401,9 +389,7 @@ public class Environment {
 		
 		for (int j = 0; j < _agents_.size(); j++)
 		{	
-			Agent agent = _agents_.get(j);
-			
-			
+			Agent agent = _agents_.get(j);			
 			int id = agent.getAgentID() - 2;
 			
 			cost = getCost(PNM, id, agent);			
@@ -467,11 +453,11 @@ public class Environment {
 		
 		if (h1 != 0 && h2 == 0)
 		{
-			violationPenalty = (Math.abs(h1 + 1) * this.U1[11]) * 1*1000*1000*1;
+			violationPenalty = (Math.abs(h1 + 1) * this.U1[11]) * C;
 		}
 		else if (h1 == 0 && h2 != 0)
 		{
-			violationPenalty = (Math.abs(h2 + 1) * this.U1[11]) * 1*1000*1000*1;
+			violationPenalty = (Math.abs(h2 + 1) * this.U1[11]) * C;
 		}
 		else if (h1 == 0 && h2 == 0)
 		{
@@ -479,7 +465,7 @@ public class Environment {
 		}
 		else if (h1 != 0 && h2 != 0)
 		{
-			violationPenalty = (1*1000*1000*1 * (Math.abs(h1 + 1) * this.U1[11])) + (1*1000*1000*1 * ((Math.abs(h2 + 1) * this.U1[11])));
+			violationPenalty = (C * (Math.abs(h1 + 1) * this.U1[11])) + (C * ((Math.abs(h2 + 1) * this.U1[11])));
 		}
 
 		double previousAgentPower = previousPNM.get(_agent.getAgentID() - 2);				
@@ -509,21 +495,13 @@ public class Environment {
 		
 		}		
 		
+		double P1M_D = getP1M(_PNM_, currentPDM);		
+		double P1M_D_cost = getP1MCost(P1M);
+		costReward_D.add(P1M_D_cost);
 		
-		double P1M_D = getP1M(_PNM_, currentPDM);
-		//System.out.println(_PNM_);
-		//System.out.println(P1M_D);
-		//System.out.println(" ");
-		//System.out.println(PNM);
-		//System.out.println(P1M);
-		
-		double P1M_D_cost = getP1MCost(P1M);				
-		double P1M_D_emissions_ = getP1MEmissions(P1M);
-		
+		double P1M_D_emissions_ = getP1MEmissions(P1M);		
 		double P1M_D_emissions = E * P1M_D_emissions_;
 		emissionsReward_D.add(P1M_D_emissions);		
-		
-		costReward_D.add(P1M_D_cost);
 		
 		double agent_cost = costReward_D.stream().mapToDouble(h -> h).sum();
 		double agent_emissions = emissionsReward_D.stream().mapToDouble(h -> h).sum();
@@ -546,13 +524,13 @@ public class Environment {
 		}
 		
 		
-		if (P1M_D - P1M_minus > 80)
+		if (P1M_D - P1M > 80)
 		{
-			h2_D = (P1M_D - P1M_minus) - 80;
+			h2_D = (P1M_D - P1M) - 80;
 		}
-		else if ((P1M_D - P1M_minus) < (-80))
+		else if ((P1M_D - P1M) < (-80))
 		{
-			h2_D = (P1M_D - P1M_minus) + 80;
+			h2_D = (P1M_D - P1M) + 80;
 		}
 		else
 		{
@@ -562,11 +540,11 @@ public class Environment {
 
 		if (h1_D != 0 && h2_D == 0)
 		{
-			violationPenalty_D = (Math.abs(h1_D + 1) * this.U1[11]) * 1*1000*1000*1;
+			violationPenalty_D = (Math.abs(h1_D + 1) * this.U1[11]) * C;
 		}
 		else if (h1_D == 0 && h2_D != 0)
 		{
-			violationPenalty_D = (Math.abs(h2_D + 1) * this.U1[11]) * 1*1000*1000*1;
+			violationPenalty_D = (Math.abs(h2_D + 1) * this.U1[11]) * C;
 		}
 		else if (h1_D == 0 && h2_D == 0)
 		{
@@ -577,19 +555,11 @@ public class Environment {
 			violationPenalty_D = (1*1000*1000*1 * (Math.abs(h1_D + 1) * this.U1[11])) 
 								+ (1*1000*1000*1 * ((Math.abs(h2_D + 1) * this.U1[11])));
 		}
-		//System.out.println("h1: " + h1_D);
-		//System.out.println("h2: " + h1_D);
-		//System.out.println("P1M_D - P1M_minus: " + (P1M_D - P1M_minus));
-		//System.out.println(this.U1[11]);
+
 		double totalCost = 0;
 		double totalEmissions = 0;
 		double totalViolationPenalty = 0;
-		
-		//System.out.println("Hello");
-		//System.out.println(violationPenalty);
-		//System.out.println(violationPenalty_D);
-		//System.out.println(violationPenalty - violationPenalty_D);
-		
+	
 		if (scalarisation == "hypervolume")
 		{	
 			totalCost = costReward.stream().mapToDouble(c -> c).sum() - agent_cost;
@@ -667,7 +637,7 @@ public class Environment {
 		
 		hour = 1;
 			
-		while (hour <= 24)
+		while (hour < 24)
 		{
 			b = b + 1;
 			PNM.clear();
@@ -709,19 +679,18 @@ public class Environment {
 				//System.out.print("maxAllowedPosition: " + minAllowedPosition);
 				double minPosLessOffset = minAllowedPosition - agent_.genOffsets[id+1];
 				double maxPosLessOffset = maxAllowedPosition - agent_.genOffsets[id+1];
-				double stepSize = (agent_.genRanges[id + 1] * percentageIncrement)/(double) numPercentSteps;
 				double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
 				Double minAllowedAction_D = minPosLessOffset * actionFraction;
 				Double maxAllowedAction_D = maxPosLessOffset * actionFraction;
 				minAllowedAction = minAllowedAction_D.intValue();
-				maxAllowedAction = maxAllowedAction_D.intValue() - 1;			
+				maxAllowedAction = maxAllowedAction_D.intValue();			
 				
 				action = agent_.selectActionDEED(currentState, minAllowedAction, maxAllowedAction+1);
 				//action = agent_.selectAction(hour, currentState, agent_);
-				//System.out.println(action);
-				//Pn = getPNM(action, agent_);
-				Pn = action * percentageIncrement * (agent_.genRanges[id+1] - 1)/(double) numPercentSteps + agent_.genOffsets[id + 1];
-				// selectedPosition = selectedAction*percentageIncrement*(genRanges_MARL[i+1]-1)/(double) numPercentSteps + genOffsets_MARL[i+1];
+				
+				//Pn = getPNM(action, agent_);				
+				Pn = action * percentageIncrement * (agent_.genRanges[id + 1] - 1) / (double) numPercentSteps + agent_.genOffsets[id + 1];
+				
 				agent_.setAgentPower(Pn);
                 PNM.add(Pn);
                 agent_.saveAction(action);
@@ -733,14 +702,11 @@ public class Environment {
 				agent.savePnm(PNM);	
 			}
 			
-			P1M = getP1M(PNM, currentPDM);
-			//System.out.println("Previous NM: " + previousPNM);
-			//System.out.println("PNM: " + PNM);
-			//System.out.println("P1M: " + P1M);
+			P1M = getP1M(PNM, currentPDM);			
 			
 			if (rewardType == "Global")
 			{
-				rewardReturnHolder = calculateGlobalReward(place, b, _agentsList_, PNM, currentState,P1M, hour, this.scalarization);
+				rewardReturnHolder = calculateGlobalReward(place, b, _agentsList_, PNM, currentState,P1M, hour, this.scalarization, previousPDM);
 				reward = rewardReturnHolder[0]; cost = rewardReturnHolder[1]; emissions = rewardReturnHolder[2];
 				violations = rewardReturnHolder[3];
 				
@@ -764,7 +730,7 @@ public class Environment {
 					violations = rewardReturnHolder[3];					
 				}
 				
-				currentState = _agent.getStateMARL(hour, _agent, _agent.getPreviousAgentPower(), action);
+				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower(), action);
 				//currentState = _agent.getNextState(PDM_delta, _agent.getPreviousAgentPower(), _agent);
 				_agent.saveCurrentState(currentState);
 				
