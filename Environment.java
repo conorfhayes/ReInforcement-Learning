@@ -154,50 +154,40 @@ public class Environment {
 		double holder;
 		double cholder;
 		
-		double sum1 = 0;
-		double sum2 = 0;
-		double sum3 = 0;
+		int n = 2;
+		double a = this.B[0][0];
 		
-		int n = 0;
-		
-		while(n <= 8)
+		while(n <= 10)
 		{
-			sum1 = sum1 + (this.B[0][n + 1] * PNM.get(n));
+			holder = (this.B[0][n-1] * PNM.get(n-2));
+			B_array.add(holder);
 			n = n + 1;
 		}
 		
-		//double b = (2 * (B_array.stream().mapToDouble(x -> x).sum())) - 1;		
-		int nn = 0;
-		int jj = 0;	
+		double b = (2 * (B_array.stream().mapToDouble(x -> x).sum()) - 1);		
+		int nn = 2;
+		int jj = 2;
 		
-		while(nn <= 8)
+		while(nn <= 10)
 		{
-			while(jj <= 8)
+			while(jj <= 10)
 			{
-				//cholder = (PNM.get(nn) * this.B[nn + 1][jj + 1] * PNM.get(nn));
-				sum2 =  sum2 + (PNM.get(nn) * this.B[nn + 1][jj + 1] * PNM.get(nn));
+				cholder = (PNM.get(nn-2) * this.B[nn-1][jj-1] * PNM.get(nn-2));
+				C_array.add(cholder);
 				jj = jj + 1;
 			}
-			sum3 = sum3 + PNM.get(nn);
+			
 			nn = nn + 1;
 		}
 		
 		double sumPNM = PNM.stream().mapToDouble(xx -> xx).sum();
 		double sumC_array = C_array.stream().mapToDouble(y -> y).sum();
-		sum2 = sum2 + currentPDM - sum3;
-		//double d = (Math.pow(b, 2)) - (4 * a * c);
-		//double totalP1MMinus = ((-b - Math.sqrt(d))/(2 * a));
-		//double totalP1MPlus = ((-b + Math.sqrt(d))/(2 * a));
-		double a = this.B[0][0];
-		double b = sum1;
-		double c = sum2;
-		double root1 = (-b + Math.sqrt(Math.pow(a, 2) - 4 * a * c)) / (2 * a);
-		double root2 = (-b - Math.sqrt(Math.pow(a, 2) - 4 * a * c)) / (2 * a);
+		double c = sumC_array + currentPDM - sumPNM;
+		double d = (Math.pow(b, 2)) - (4 * a * c);
+		double totalP1MMinus = ((-b - Math.sqrt(d))/(2 * a));
+		double totalP1MPlus = ((-b + Math.sqrt(d))/(2 * a));
 		
-		System.out.println(a);
-		System.out.println(b);
-		System.out.println(c);
-		double totalP1M = Math.min(root1, root2);
+		double totalP1M = Math.min(totalP1MPlus, totalP1MMinus);
 		
 		return totalP1M;
 	}
@@ -730,7 +720,7 @@ public class Environment {
 					violations = rewardReturnHolder[3];					
 				}
 				
-				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower(), action);
+				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getPreviousAgentPower(), action);
 				//currentState = _agent.getNextState(PDM_delta, _agent.getPreviousAgentPower(), _agent);
 				_agent.saveCurrentState(currentState);
 				
