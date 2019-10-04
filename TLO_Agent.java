@@ -62,7 +62,7 @@ public class TLO_Agent {
 	public ArrayList<Integer> action_ = new ArrayList<Integer>();
 	//public TLO_QHashMapStorage qValuesHashMap;
 	public int numPercentSteps = 100 / percentageIncrement + 1;
-	public double epsilon = 0.025;
+	public double epsilon = 0.05;
 	public double gamma = 1;
 	public double alpha = 0.1;
 	public int numObjectives = 3;
@@ -577,7 +577,7 @@ public class TLO_Agent {
 				a = a + 1;
 			}
 			
-			/*if (bestAction.size() > 1)
+			if (bestAction.size() > 1)
 			{				
 				Random r = new Random();
 				int check = r.nextInt(bestAction.size());
@@ -585,11 +585,32 @@ public class TLO_Agent {
 				
 				bestAction_ = bestAction.get(check);
 				actionVector.add(qVector_holder.get(action_holder.indexOf(bestAction_)));			
-			}*/
-			if (bestAction.size() > 1)
-			{
-				
 			}
+			/*if (bestAction.size() > 1)
+			{
+				double qValue1 = 0;
+				double qValue2 = 0;
+				double qValue3 = 0;
+				double reward = 0;
+				
+				ArrayList<Double> tieBreaker = new ArrayList<Double>();
+
+				for (int x = 0; x < bestAction.size(); x++)
+				{	
+					
+					qValue1 = qVector_holder.get(x).get(0);
+					qValue2 = qVector_holder.get(x).get(1);
+					qValue3 = qVector_holder.get(x).get(2);
+					//reward = (qValue1 * 0.5) + (qValue2 * 0.225) + (qValue3 * 0.275);
+					reward = qValue1 * qValue2 * qValue3;
+					
+					tieBreaker.add(reward);
+					int maxIndex = tieBreaker.indexOf(Collections.max(tieBreaker));
+					bestAction_ = bestAction.get(maxIndex);
+					actionVector.add(qVector_holder.get(action_holder.indexOf(bestAction_)));						
+				}
+				
+			} */
 			else
 			{
 				bestAction_ = bestAction.get(0);
