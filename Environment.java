@@ -70,16 +70,16 @@ public class Environment {
 		double PDM_;
 		double PDM;
 		double PDM_delta;
-		if (hour - 1 == 0)
+		if (hour == 0)
 		{
 			PDM_ = 0;
 		}
 		else
 		{
-			PDM_ = this.PDM_hold[hour - 2];
+			PDM_ = this.PDM_hold[hour - 1];
 		}
 		
-		PDM = this.PDM_hold[hour - 1];
+		PDM = this.PDM_hold[hour];
 		PDM_delta = PDM - PDM_;
 		powerResults[0] = PDM; powerResults[1] = PDM_; powerResults[2] = PDM_delta;
 		return powerResults;
@@ -102,10 +102,11 @@ public class Environment {
 		ArrayList<ArrayList<Double>> UHolder = agent.UHolder;
 		//System.out.println(UHolder);
 		
-		cost = UHolder.get(id).get(2) + (UHolder.get(id).get(3) * (PNM_.get(id))) +  
-			   UHolder.get(id).get(4) * (Math.pow(PNM_.get(id), 2)) + Math.abs(UHolder.get(id).get(5) * 
-			   Math.sin(UHolder.get(id).get(6) * (UHolder.get(id).get(0) - PNM_.get(id))));
-		
+		cost = UHolder.get(id).get(2) + 
+			  (UHolder.get(id).get(3) * (PNM_.get(id))) +  
+			  (UHolder.get(id).get(4) * (Math.pow(PNM_.get(id), 2))) + 
+			   Math.abs(UHolder.get(id).get(5) * Math.sin(UHolder.get(id).get(6) * (UHolder.get(id).get(0) - PNM_.get(id))));
+		//System.out.println(UHolder.get(id).get(0));
 		return cost;
 	}
 	
@@ -115,9 +116,10 @@ public class Environment {
 		int id = agentID;
 		ArrayList<ArrayList<Double>> UHolder = agent.UHolder;
 		
-		emissions = UHolder.get(id).get(7) + (UHolder.get(id).get(8) * PNM_.get(id)) + (
-			    UHolder.get(id).get(9) * Math.pow(PNM_.get(id),2)) + (
-				UHolder.get(id).get(10) * Math.exp(UHolder.get(id).get(11) * PNM_.get(id)));
+		emissions =  UHolder.get(id).get(7) + 
+					(UHolder.get(id).get(8) * PNM_.get(id)) + 
+					(UHolder.get(id).get(9) * Math.pow(PNM_.get(id),2)) + 
+					(UHolder.get(id).get(10) * Math.exp(UHolder.get(id).get(11) * PNM_.get(id)));
 		
 		return emissions;
 	}
@@ -271,10 +273,19 @@ public class Environment {
 		}	
 		
 		for (int j = 0; j < _agents_.size(); j++)
-			
+		
 		{
 			Agent agent = _agents_.get(j);
-			previousPNM.add(agent.getPreviousAgentPower());				
+			int id = agent.getAgentID() - 2;
+			
+			if (hour == 0)
+			{
+				previousPNM.add( ( agent.UHolder.get(id).get(1) - agent.UHolder.get(id).get(0) ) / 2 + agent.UHolder.get(id).get(0) );
+			}
+			else
+			{
+				previousPNM.add(agent.getPreviousAgentPower());				
+			}			
 		}
 		
 		double P1M_cost;
@@ -302,15 +313,23 @@ public class Environment {
 			h1 = 0;
 		}
 		
-		P1M_minus = getP1M(previousPNM, previousPDM);
+		if (hour == 0)
+		{ 
+			P1M_minus =  this.U1[0] + (this.U1[1] - this.U1[0]) / 2;	
+		}
+		
+		else
+		{		
+			P1M_minus = getP1M(previousPNM, previousPDM);
+		}
 		
 		if (P1M - P1M_minus > 80)
 		{
-			h2 = (P1M - P1M_minus) - 80;
+			h2 = P1M - P1M_minus - 80;
 		}
-		else if ((P1M - P1M_minus) < (-80))
+		else if (P1M - P1M_minus < -80)
 		{
-			h2 = (P1M - P1M_minus) + 80;
+			h2 = P1M - P1M_minus + 80;
 		}
 		else
 		{
@@ -319,11 +338,12 @@ public class Environment {
 		
 		if (h1 != 0 && h2 == 0)
 		{
-			violationPenalty = (Math.abs(h1 + 1) * this.U1[11]) * C;
+			//  * this.U1[11]
+			violationPenalty = (Math.abs(h1 + 1) * 1) * C;
 		}
 		else if (h1 == 0 && h2 != 0)
 		{
-			violationPenalty = (Math.abs(h2 + 1) * this.U1[11]) * C;
+			violationPenalty = (Math.abs(h2 + 1) * 1) * C;
 		}
 		else if (h1 == 0 && h2 == 0)
 		{
@@ -331,7 +351,7 @@ public class Environment {
 		}
 		else if (h1 != 0 && h2 != 0)
 		{
-			violationPenalty = (C * (Math.abs(h1 + 1) * this.U1[11])) + (C * ((Math.abs(h2 + 1) * this.U1[11])));
+			violationPenalty = (C * (Math.abs(h1 + 1) * 1 )) + (C * ((Math.abs(h2 + 1) * 1 )));
 		}
 		
 		overallCostReward = (costReward.stream().mapToDouble(a -> a).sum());
@@ -340,7 +360,7 @@ public class Environment {
 		
 		if (scalarisation == "hypervolume")
 		{				
-			reward = -(overallCostReward + overallEmissionsReward + overallPenalty);
+			reward = -(overallCostReward * overallEmissionsReward * overallPenalty);
 		}
 		
 		if (scalarisation == "linear")
@@ -394,7 +414,15 @@ public class Environment {
 			
 		{
 			Agent agent = _agents_.get(j);
-			previousPNM.add(agent.getPreviousAgentPower());				
+			int id = agent.getAgentID() - 2;
+			if (hour == 0)
+			{
+				previousPNM.add( ( agent.UHolder.get(id).get(1) - agent.UHolder.get(id).get(0) ) / 2 + agent.UHolder.get(id).get(0) );
+			}
+			else
+			{
+				previousPNM.add(agent.getPreviousAgentPower());				
+			}			
 		}
 		
 		double P1M_cost;
@@ -424,16 +452,23 @@ public class Environment {
 			h1 = 0;
 		}
 		
-		P1M_minus = getP1M(previousPNM, previousPDM);
-		
+		//System.out.println("Hour: " + (hour - 1) + " Previous Power Demand" + previousPDM);
+		if (hour == 0)
+			{
+				P1M_minus = this.U1[0] + ( this.U1[1] - this.U1[0]) / 2;
+			}
+		else 
+			{
+				P1M_minus = getP1M(previousPNM, previousPDM);
+			}
 		
 		if (P1M - P1M_minus > 80)
 		{
-			h2 = (P1M - P1M_minus) - 80;
+			h2 = P1M - P1M_minus - 80;
 		}
-		else if ((P1M - P1M_minus) < (-80))
+		else if (P1M - P1M_minus < - 80)
 		{
-			h2 = (P1M - P1M_minus) + 80;
+			h2 = P1M - P1M_minus + 80;
 		}
 		else
 		{
@@ -443,11 +478,11 @@ public class Environment {
 		
 		if (h1 != 0 && h2 == 0)
 		{
-			violationPenalty = (Math.abs(h1 + 1) * this.U1[11]) * C;
+			violationPenalty = (Math.abs(h1 + 1) * 1) * C;
 		}
 		else if (h1 == 0 && h2 != 0)
 		{
-			violationPenalty = (Math.abs(h2 + 1) * this.U1[11]) * C;
+			violationPenalty = (Math.abs(h2 + 1) * 1) * C;
 		}
 		else if (h1 == 0 && h2 == 0)
 		{
@@ -455,7 +490,7 @@ public class Environment {
 		}
 		else if (h1 != 0 && h2 != 0)
 		{
-			violationPenalty = (C * (Math.abs(h1 + 1) * this.U1[11])) + (C * ((Math.abs(h2 + 1) * this.U1[11])));
+			violationPenalty = (C * (Math.abs(h1 + 1) * 1)) + (C * ((Math.abs(h2 + 1) * 1)));
 		}
 
 		double previousAgentPower = previousPNM.get(_agent.getAgentID() - 2);				
@@ -514,13 +549,13 @@ public class Environment {
 		}
 		
 		
-		if (P1M_D - P1M > 80)
+		if (P1M_D - P1M_minus > 80)
 		{
-			h2_D = (P1M_D - P1M) - 80;
+			h2_D = P1M_D - P1M_minus - 80;
 		}
-		else if ((P1M_D - P1M) < (-80))
+		else if (P1M_D - P1M_minus < - 80)
 		{
-			h2_D = (P1M_D - P1M) + 80;
+			h2_D = P1M_D - P1M_minus + 80;
 		}
 		else
 		{
@@ -530,11 +565,11 @@ public class Environment {
 
 		if (h1_D != 0 && h2_D == 0)
 		{
-			violationPenalty_D = (Math.abs(h1_D + 1) * this.U1[11]) * C;
+			violationPenalty_D = (Math.abs(h1_D + 1) * 1) * C;
 		}
 		else if (h1_D == 0 && h2_D != 0)
 		{
-			violationPenalty_D = (Math.abs(h2_D + 1) * this.U1[11]) * C;
+			violationPenalty_D = (Math.abs(h2_D + 1) * 1) * C;
 		}
 		else if (h1_D == 0 && h2_D == 0)
 		{
@@ -542,10 +577,9 @@ public class Environment {
 		}
 		else if (h1_D != 0 && h2_D != 0)
 		{
-			violationPenalty_D = (1*1000*1000*1 * (Math.abs(h1_D + 1) * this.U1[11])) 
-								+ (1*1000*1000*1 * ((Math.abs(h2_D + 1) * this.U1[11])));
-		}
-
+			violationPenalty_D = (C * (Math.abs(h1_D + 1) * 1)) + (C * ((Math.abs(h2_D + 1) * 1)));
+		}		
+				
 		double totalCost = 0;
 		double totalEmissions = 0;
 		double totalViolationPenalty = 0;
@@ -555,14 +589,8 @@ public class Environment {
 			totalCost = costReward.stream().mapToDouble(c -> c).sum() - agent_cost;
 			totalEmissions = emissionsReward.stream().mapToDouble(d -> d).sum() - agent_emissions;
 			totalViolationPenalty = violationPenalty - violationPenalty_D;
-			
-			//System.out.println("TC: " + totalCost);
-			//System.out.println("TE: " + totalEmissions);
-			//System.out.println("TV: " + totalViolationPenalty);
-			//System.out.println(" ");
-			
-			
-			reward  = totalCost + totalEmissions + totalViolationPenalty;		
+		
+			reward  = totalCost * totalEmissions * totalViolationPenalty;		
 			reward = -reward;
 		}
 		
@@ -584,8 +612,7 @@ public class Environment {
 	}	
 
 
-
-	
+		
 	private double getP1M_minus_D() {
 		// TODO Auto-generated method stub
 		return 0;
@@ -625,7 +652,7 @@ public class Environment {
 		ArrayList<Double> PNM = new ArrayList<Double>();
 		int currentState = -1;
 		
-		hour = 1;
+		hour = 0;
 			
 		while (hour < 24)
 		{
@@ -641,11 +668,18 @@ public class Environment {
 				Agent agent_ = _agents_.get(i);
 				int id = agent_.getAgentID() - 2;
 				
-			
-				
-				previousAgentPower = agent_.getPreviousAgentPower();
+				if (hour == 0 && j == 1)
+				{
+					previousAgentPower = (agent_.UHolder.get(id).get(1) - 
+							agent_.UHolder.get(id).get(0)) / 2 + agent_.UHolder.get(id).get(0);
+				}
+				else
+				{
+					previousAgentPower = agent_.getPreviousAgentPower();
+				}
 				//System.out.println("Previous Agent Power: " + previousAgentPower);
-				currentState = agent_.getState();
+				//currentState = agent_.getState();
+				currentState = agent_.getStateMARL(hour, agent_, previousAgentPower);
 				//System.out.println(agent_.getAgentID());
 				
 				int minAllowedAction = 0;
@@ -666,7 +700,6 @@ public class Environment {
 					maxAllowedPosition = (int) (agent_.UHolder.get(id).get(1) - 0);
 				}
 				
-				//System.out.print("maxAllowedPosition: " + minAllowedPosition);
 				double minPosLessOffset = minAllowedPosition - agent_.genOffsets[id+1];
 				double maxPosLessOffset = maxAllowedPosition - agent_.genOffsets[id+1];
 				double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
@@ -675,7 +708,7 @@ public class Environment {
 				minAllowedAction = minAllowedAction_D.intValue();
 				maxAllowedAction = maxAllowedAction_D.intValue();			
 				
-				action = agent_.selectActionDEED(currentState, minAllowedAction, maxAllowedAction+1);
+				action = agent_.selectActionDEED(currentState, minAllowedAction, maxAllowedAction);
 				//action = agent_.selectAction(hour, currentState, agent_);
 				
 				//Pn = getPNM(action, agent_);				
@@ -720,7 +753,8 @@ public class Environment {
 					violations = rewardReturnHolder[3];					
 				}
 				
-				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getPreviousAgentPower(), action);
+				previousState = _agent.getStateMARL(hour, _agent, _agent.getPreviousAgentPower());
+				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower());
 				//currentState = _agent.getNextState(PDM_delta, _agent.getPreviousAgentPower(), _agent);
 				_agent.saveCurrentState(currentState);
 				
