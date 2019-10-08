@@ -195,6 +195,65 @@ public class TLO_Environment {
 		return Math.min(root1, root2);
 	}
 	
+	public double getConstraintViolationsHour(int hour, ArrayList <Double> currentPositions, ArrayList <Double> previousPositions, TLO_Agent agent) 
+	{
+		//double violationMult=1000000.0; // Karl's AAMAS value
+		double violationMult = 1000000.0;
+		double violation=0.0;
+		double diff=0.0;
+		double currentPSlack = getSlackPowerHour(currentPositions, hour);
+		double previousPSlack;
+		
+		if(hour > 0) 
+		{
+			previousPSlack = getSlackPowerHour(previousPositions, hour-1);
+		}
+		else 
+		{
+			previousPSlack = this.U1[0] + (this.U1[1] - this.U1[0]) / 2;
+		}
+
+		if(hour > 0) 
+		{
+			for(int i=0;i<currentPositions.size();i++)
+			{ 
+				diff=Math.abs(currentPositions.get(i) - previousPositions.get(i));
+				if(diff > agent.UHolder.get(i).get(12))
+				{ 
+					violation = violation + diff - agent.UHolder.get(i).get(12);
+				}
+			}
+		}
+
+		if(currentPSlack>this.U1[1])
+		{
+			violation = violation + currentPSlack - this.U1[1];
+		}
+		else if(currentPSlack<this.U1[0])
+		{
+			violation = violation + Math.abs(currentPSlack - this.U1[0]);
+		}
+
+		if(hour > 0) 
+		{
+		
+			diff = Math.abs(currentPSlack - previousPSlack);
+			
+			if(diff>this.U1[12])
+			{
+				violation = violation + diff - this.U1[12];
+			}
+		}
+		if(violation>0)
+		{
+			return (violation+1)*violationMult;
+		}
+		else
+		{
+			return violation;
+		}
+	}
+	
 	public double getP1M(ArrayList<Double> PNM, double currentPDM)
 	{
 		ArrayList<Double> B_array = new ArrayList<Double>();
@@ -290,7 +349,8 @@ public class TLO_Environment {
 	
 		
 	public double[] calculateGlobalReward(int x, int i, ArrayList<TLO_Agent> _agents_, ArrayList<Double> PNM, 
-										  double currentState, double currentPDM, int hour, String scalarisation, double previousPDM )
+										  double currentState, double currentPDM, int hour, String scalarisation, 
+										  double previousPDM, TLO_Agent agent_ )
 	{
 		ArrayList<Double> costReward = new ArrayList<Double>();
 		ArrayList<Double> emissionsReward = new ArrayList<Double>();
@@ -403,14 +463,10 @@ public class TLO_Environment {
 		
 		overallCostReward = (costReward.stream().mapToDouble(a -> a).sum());
 		overallEmissionsReward = (emissionsReward.stream().mapToDouble(a -> a).sum());
-		overallPenalty = violationPenalty;		
-		
-		
+		//overallPenalty = violationPenalty;	
+		overallPenalty = getConstraintViolationsHour(hour, PNM, previousPNM, agent_);
 						
 		reward = -(overallCostReward + overallEmissionsReward + overallPenalty);
-		
-		
-		
 		
 		
 		rewardArray[0] = reward; rewardArray[1] = overallCostReward; rewardArray[2] = overallEmissionsReward;
@@ -682,8 +738,8 @@ public class TLO_Environment {
 
 	public double[] timeStep(ArrayList<TLO_Agent> _agents_, int j, String rewardType, String scalarization)
 	{
-		this.thresHolds[0] = -25000000; // -10000000, -2800000
-		this.thresHolds[1] = -2700000;
+		this.thresHolds[0] = -100000000; // -10000000, -2800000
+		this.thresHolds[1] = -2600000;
 		
 		double[] _thresHolds_ = Arrays.copyOf (this.thresHolds, this.thresHolds.length);
 		//Double [] thresholds_ = new Double[](P1M_minus); 
@@ -793,19 +849,8 @@ public class TLO_Environment {
 				agent.savePnm(PNM);	
 			}
 			
-			P1M = getSlackPowerHour(PNM, hour);			
+			P1M = getSlackPowerHour(PNM, hour);						
 			
-			if (rewardType == "Global")
-			{
-				rewardReturnHolder = calculateGlobalReward(place, b, _agentsList_, PNM, currentState, currentPDM, 
-						hour, this.scalarization, previousPDM);
-				
-				reward = rewardReturnHolder[0]; cost = rewardReturnHolder[1]; emissions = rewardReturnHolder[2];
-				violations = rewardReturnHolder[3];
-				
-				emissionsTotal.add(emissions);  rewardTotal.add(reward); violationsTotal.add(violations);
-				costTotal.add(cost);
-			}
 			
 			for (int z = 0; z < _agents_.size(); z ++)
 			{
@@ -813,6 +858,18 @@ public class TLO_Environment {
 				int id = _agent.getAgentID() - 2;
 				previousState = _agent.getState();
 				action = _agent.getAction();
+				
+				if (rewardType == "Global")
+				{
+					rewardReturnHolder = calculateGlobalReward(place, b, _agentsList_, PNM, currentState, currentPDM, 
+							hour, this.scalarization, previousPDM, _agent);
+					
+					reward = rewardReturnHolder[0]; cost = rewardReturnHolder[1]; emissions = rewardReturnHolder[2];
+					violations = rewardReturnHolder[3];
+					
+					//emissionsTotal.add(emissions);  rewardTotal.add(reward); violationsTotal.add(violations);
+					//costTotal.add(cost);
+				}
 				
 				if (rewardType == "Difference")
 				{
@@ -850,14 +907,12 @@ public class TLO_Environment {
 			hour = hour + 1;
 			
 			
-			if (rewardType == "Difference")
-			{
+			
 				emissionsTotal.add(emissions);  rewardTotal.add(reward); violationsTotal.add(violations);
 				costTotal.add(cost);				
-			}			
+					
 					
 			}	
-		System.out.println("Thresholds: " + this.thresHolds[0] + " " + this.thresHolds[1]);	
 		double totalCost = costTotal.stream().mapToDouble(ii -> ii).sum();
 		double totalEmissions = emissionsTotal.stream().mapToDouble(ik -> ik).sum();
 		double totalViolations = violationsTotal.stream().mapToDouble(il -> il).sum();
