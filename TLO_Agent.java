@@ -62,7 +62,7 @@ public class TLO_Agent {
 	public ArrayList<Integer> action_ = new ArrayList<Integer>();
 	//public TLO_QHashMapStorage qValuesHashMap;
 	public int numPercentSteps = 100 / percentageIncrement + 1;
-	public double epsilon = 0.05;
+	public double epsilon = 0.0;
 	public double gamma = 1;
 	public double alpha = 0.1;
 	public int numObjectives = 3;
@@ -517,11 +517,18 @@ public class TLO_Agent {
 		Integer bestAction_ = 0;
 		ArrayList<Integer> action_holder = new ArrayList<Integer>();
 		ArrayList<ArrayList<Double>> qVector_holder = new ArrayList<ArrayList<Double>>();
-
-		//Explore
+		
+		ArrayList<Integer> action_holder_ = new ArrayList<Integer>();
+		
+		for (int action = minAllowedAction ; action < maxAllowedAction ; action++)
+		{
+			action_holder_.add(action);
+		}
+		
 		if ( Math.random() < epsilon ) {		
-			int actionIndex = (int) (Math.random() * numActions);
-			return actionIndex;
+			int actionIndex = (int) (Math.random() * action_holder_.size());
+			//return actionIndex;
+			return action_holder_.get(actionIndex);
 		}
 		else 
 		{
@@ -586,7 +593,7 @@ public class TLO_Agent {
 				bestAction_ = bestAction.get(check);
 				actionVector.add(qVector_holder.get(action_holder.indexOf(bestAction_)));			
 			}
-			/*if (bestAction.size() > 1)
+			/* if (bestAction.size() > 1)
 			{
 				double qValue1 = 0;
 				double qValue2 = 0;
@@ -601,8 +608,8 @@ public class TLO_Agent {
 					qValue1 = qVector_holder.get(x).get(0);
 					qValue2 = qVector_holder.get(x).get(1);
 					qValue3 = qVector_holder.get(x).get(2);
-					//reward = (qValue1 * 0.5) + (qValue2 * 0.225) + (qValue3 * 0.275);
-					reward = qValue1 * qValue2 * qValue3;
+					reward = (qValue1 * 0.5) + (qValue2 * 0.225) + (qValue3 * 0.275);
+					//reward = qValue1 * qValue2 * qValue3;
 					
 					tieBreaker.add(reward);
 					int maxIndex = tieBreaker.indexOf(Collections.max(tieBreaker));
@@ -622,13 +629,9 @@ public class TLO_Agent {
 			
 			for (int x = 0; x < thresHolds.length; x ++)
 			{				
-				//System.out.println("Action Vector: " + actionVector.get(0));
-				thresHolds[x] = thresHolds[x] - actionVector.get(0).get(x);
+								
+				thresHolds[x] = thresHolds[x] - actionVector.get(0).get(x);			
 				
-				//if (thresHolds[x] < 0)
-				//{
-				//	thresHolds[x] = 0;
-				//}
 			}
 		}		
 		
