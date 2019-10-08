@@ -7,7 +7,7 @@ public class Main {
 	
 	public static int numEpisodes = 20000;
 	public static int numAgents = 9;
-	public static int numRuns = 1;
+	public static int numRuns = 20;
 	
 	public static double[] timeStepVector;
 	public static double totalCost;
@@ -64,8 +64,8 @@ public class Main {
 			
 			while (j <= numEpisodes)
 			{
-				System.out.println("*** Episode: " + j + " ***");
-				rewardType = "Difference";
+				
+				rewardType = "Global";
 				scalarisation = "linear";
 				timeStepVector = envGlobal.timeStep(_agentsGlobal_, j, rewardType, scalarisation);
 				
@@ -76,6 +76,7 @@ public class Main {
 				totalCostArray.add(totalCost); totalEmissionsArray.add(totalEmissions);
 				totalViolationsArray.add(totalViolations);
 				
+				//System.out.println("*** Episode: " + j + " ***");
 				//System.out.println("Total Cost: " + totalCost);
 				//System.out.println("Total Emissions: " + totalEmissions);
 				//System.out.println("Total Violations: " + totalViolations);				
@@ -88,8 +89,7 @@ public class Main {
 			runCostResults.add(totalCostArray);
 			runEmissionsResults.add(totalEmissionsArray);
 			runViolationsResults.add(totalViolationsArray);
-			
-			//System.out.println(runCostResults.get(0));
+
 			
 			inc = inc + 1;			
 		}		
@@ -113,21 +113,18 @@ public class Main {
 			}
 			
 			cost = cost / div; emissions = emissions / div; violations = violations / div;
-			cost = cost / 1000000 ; emissions = emissions / 1000000; violations = violations / 1000000; 
+			cost = cost / 1000000 ; emissions = emissions / 100000; violations = violations / 1000000; 
 			outputCostArray.add(cost); outputEmissionsArray.add(emissions); outputViolationsArray.add(violations);
 		}
 		
-		//System.out.println("Output Cost Array: " + outputCostArray);
-		//System.out.println("Output Emissions Array: " + outputEmissionsArray);
-		//System.out.println("Output Violations Array: " + outputViolationsArray);
-		
+
 		FileWriter fw = new FileWriter(rewardType + "_" + scalarisation + "_" + "Cost_" + java.time.LocalDate.now() + "_" +  java.time.LocalTime.now());
 		PrintWriter pw = new PrintWriter(fw);
 		for (int e = 0; e < numEpisodes; e ++)
 		{
 			pw.println(outputCostArray.get(e).toString());
 		}
-		//br.write(outputCostArray.toString());
+
 		pw.flush();			
 		pw.close();
 		fw.close();
@@ -138,7 +135,7 @@ public class Main {
 		{
 			pw1.println(outputEmissionsArray.get(e).toString());
 		}
-		//br.write(outputCostArray.toString());
+
 		pw1.flush();			
 		pw1.close();
 		fw1.close();
@@ -149,7 +146,7 @@ public class Main {
 		{
 			pw2.println(outputEmissionsArray.get(e).toString());
 		}
-		//br.write(outputCostArray.toString());
+
 		pw2.flush();			
 		pw2.close();
 		fw2.close();
