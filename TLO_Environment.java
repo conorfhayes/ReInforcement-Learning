@@ -738,8 +738,8 @@ public class TLO_Environment {
 
 	public double[] timeStep(ArrayList<TLO_Agent> _agents_, int j, String rewardType, String scalarization)
 	{
-		this.thresHolds[0] = -100000000; // -10000000, -2800000
-		this.thresHolds[1] = -2600000;
+		this.thresHolds[0] = -10000000; // -10000000, -2800000
+		this.thresHolds[1] = -2700000;
 		
 		double[] _thresHolds_ = Arrays.copyOf (this.thresHolds, this.thresHolds.length);
 		//Double [] thresholds_ = new Double[](P1M_minus); 
