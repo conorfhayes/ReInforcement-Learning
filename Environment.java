@@ -270,7 +270,6 @@ public class Environment {
 			costReward.add(cost);
 			
 			emissions = getEmissions(PNM, id, agent);			
-			emissions = emissions;
 			emissionsReward.add(emissions);			
 		}	
 		
@@ -295,8 +294,7 @@ public class Environment {
 		costReward.add(P1M_cost);
 		
 		double P1M_emissions_ = getP1MEmissions(P1M);		
-		double P1M_emissions = P1M_emissions_;
-		emissionsReward.add(P1M_emissions);					
+		emissionsReward.add(P1M_emissions_);					
 		
 		int C = 1000000;
 		double h1;
@@ -357,7 +355,7 @@ public class Environment {
 			violationPenalty = (C * (Math.abs(h1 + 1) * 1 )) + (C * ((Math.abs(h2 + 1) * 1 )));
 		}
 		
-		//violationPenalty = getConstraintViolationsHour(hour, PNM, previousPNM, agent_);
+		violationPenalty = getConstraintViolationsHour(hour, PNM, previousPNM, agent_);
 		overallCostReward = (costReward.stream().mapToDouble(a -> a).sum());
 		overallEmissionsReward = (emissionsReward.stream().mapToDouble(a -> a).sum()) * 10;
 		overallPenalty = violationPenalty;	
@@ -368,8 +366,12 @@ public class Environment {
 		}
 		
 		if (scalarisation == "linear")
-		{				
-			reward = -((overallCostReward * 0.225) + (overallEmissionsReward * 0.275) + (overallPenalty * 0.5));
+		{	
+			overallCostReward = overallCostReward * 0.225;
+			overallEmissionsReward = overallEmissionsReward * 0.275;
+			overallPenalty = overallPenalty * 0.5;
+			
+			reward = -(overallCostReward + overallEmissionsReward + overallPenalty);
 		}
 		
 		if (scalarisation == "TLO")
@@ -378,8 +380,9 @@ public class Environment {
 		}
 		
 		
-		rewardArray[0] = reward; rewardArray[1] = overallCostReward; rewardArray[2] = overallEmissionsReward;
-		rewardArray[3] = overallPenalty;
+		rewardArray[0] = reward; rewardArray[1] = costReward.stream().mapToDouble(a -> a).sum(); 
+		rewardArray[2] = emissionsReward.stream().mapToDouble(a -> a).sum();
+		rewardArray[3] = violationPenalty;
 		
 		return rewardArray;
 	}	
