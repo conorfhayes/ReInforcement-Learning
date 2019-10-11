@@ -236,6 +236,7 @@ public class Agent {
 		double oldQ = qTable[previousState][selectedAction];
 		//System.out.println("Old Q: " + oldQ);
 		double maxQ = getMaxQValue(currentState, agent);
+		//double maxQ = 0;
 		double newQ = oldQ + alpha * (reward + gamma * maxQ - oldQ);
 		qTable[previousState][selectedAction] = (float) newQ;
 	}
@@ -537,8 +538,8 @@ public class Agent {
 		float oldQ = getQValue(previousState,selectedAction); 
 		//System.out.println("Old Q: " + oldQ);
 		// determine max Q value for current state
-		float maxQ = getMaxQ(currentState);
-
+		//float maxQ = getMaxQ(currentState);
+		float maxQ = 0;
 		// Calculate new value for Q
 		float newQ = (float) (oldQ + alpha * ( reward + gamma * maxQ - oldQ ));
 
