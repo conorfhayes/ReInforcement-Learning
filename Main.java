@@ -7,7 +7,7 @@ public class Main {
 	
 	public static int numEpisodes = 20000;
 	public static int numAgents = 9;
-	public static int numRuns = 20;
+	public static int numRuns = 1;
 	
 	public static double[] timeStepVector;
 	public static double totalCost;
@@ -65,7 +65,7 @@ public class Main {
 			while (j <= numEpisodes)
 			{
 				
-				rewardType = "Global";
+				rewardType = "Difference";
 				scalarisation = "linear";
 				timeStepVector = envGlobal.timeStep(_agentsGlobal_, j, rewardType, scalarisation);
 				
@@ -81,7 +81,7 @@ public class Main {
 				//System.out.println("Total Emissions: " + totalEmissions);
 				//System.out.println("Total Violations: " + totalViolations);				
 				//System.out.println(" ");
-					
+				
 				
 				j = j + 1;
 			}
