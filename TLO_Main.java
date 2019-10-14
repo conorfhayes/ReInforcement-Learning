@@ -6,6 +6,11 @@ import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import com.smartxls.ChartFormat;
+import com.smartxls.ChartShape;
+import com.smartxls.RangeStyle;
+import com.smartxls.WorkBook;
+
 public class TLO_Main {
 	
 	public static int numEpisodes = 20000;
@@ -14,22 +19,32 @@ public class TLO_Main {
 	public static double totalCost;
 	public static double totalEmissions;
 	public static double totalViolations;
-	public static int numRuns = 20;
+	public static int numRuns = 50;
 	
-	public static ArrayList<Double> totalCostArray = new ArrayList<Double>();
-	public static ArrayList<Double> totalEmissionsArray = new ArrayList<Double>();
-	public static ArrayList<Double> totalViolationsArray = new ArrayList<Double>();
+	//public static WorkBook output_workbook;
 	
-	public static ArrayList<Double> outputCostArray = new ArrayList<Double>();
-	public static ArrayList<Double> outputEmissionsArray = new ArrayList<Double>();
-	public static ArrayList<Double> outputViolationsArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaltotalCostArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaltotalEmissionsArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaltotalViolationsArray = new ArrayList<Double>();
 	
-	public static ArrayList<ArrayList<Double>> runCostResults = new ArrayList<ArrayList<Double>>();
-	public static ArrayList<ArrayList<Double>> runEmissionsResults = new ArrayList<ArrayList<Double>>();
-	public static ArrayList<ArrayList<Double>> runViolationsResults = new ArrayList<ArrayList<Double>>();
+	public static ArrayList<Double> FinaloutputCostArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaloutputEmissionsArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaloutputViolationsArray = new ArrayList<Double>();
+
 	
-	public static void main(String[] args) throws IOException
+	public static void main(String[] args) throws Exception
 	{
+		
+		ArrayList<ArrayList<Double>> runCostResults = new ArrayList<ArrayList<Double>>();
+		ArrayList<ArrayList<Double>> runEmissionsResults = new ArrayList<ArrayList<Double>>();
+		ArrayList<ArrayList<Double>> runViolationsResults = new ArrayList<ArrayList<Double>>();
+	
+		
+		ArrayList<Double> outputCostArray = new ArrayList<Double>();
+		ArrayList<Double> outputEmissionsArray = new ArrayList<Double>();
+		ArrayList<Double> outputViolationsArray = new ArrayList<Double>();
+		
+		WorkBook output_workbook = new WorkBook();
 		//System.out.println("Hello");
 		int inc = 1;
 		//int starter = 1;
@@ -56,9 +71,10 @@ public class TLO_Main {
 			System.out.println("*************** Run " + inc + " ***************");
 			
 			int j = 1;
-			totalCostArray.clear();
-			totalEmissionsArray.clear();
-			totalViolationsArray.clear();
+			
+			ArrayList<Double> totalCostArray = new ArrayList<Double>();
+			ArrayList<Double> totalEmissionsArray = new ArrayList<Double>();
+			ArrayList<Double> totalViolationsArray = new ArrayList<Double>();
 			
 			while (j <= numEpisodes)
 			{
@@ -77,6 +93,14 @@ public class TLO_Main {
 				//System.out.println("Total Emissions: " + totalEmissions);
 				//System.out.println("Total Violations: " + totalViolations);				
 				//System.out.println(" ");
+				
+
+				if (j == numEpisodes)
+				{
+					FinaltotalCostArray.add(totalCost / 100000);
+					FinaltotalEmissionsArray.add(totalEmissions / 10000);
+					FinaltotalViolationsArray.add(totalViolations / 100000);
+				}
 					
 				
 				j = j + 1;
@@ -141,11 +165,74 @@ public class TLO_Main {
 		PrintWriter pw2 = new PrintWriter(fw2);
 		for (int e = 0; e < numEpisodes; e ++)
 		{
-			pw2.println(outputEmissionsArray.get(e).toString());
+			pw2.println(outputViolationsArray.get(e).toString());
 		}
 		//br.write(outputCostArray.toString());
 		pw2.flush();			
 		pw2.close();
 		fw2.close();
+		
+		try
+		{
+		output_workbook.insertSheets(0, 1);
+		
+		for (int xx = 0; xx < 2; xx ++)
+		{
+			String SheetName;
+			if (xx == 0)
+			{
+				SheetName = "Run Results";
+			}
+			else
+			{
+				SheetName = "Final Results";
+				
+			}
+			output_workbook.setSheetName(xx, SheetName);
+			output_workbook.setSheet(xx);
+			
+			output_workbook.setText(0,0,"Soln No");
+			output_workbook.setText(0,1,"Cost (x10^6)");
+			output_workbook.setText(0,2,"Emissions (x10^5)");
+			output_workbook.setText(0,3,"Violations (x10^6)");
+			
+			if (xx == 0)
+			{
+				int rowCounter = 1;
+				for (int point = 0; point < numEpisodes; point++) 
+				{
+					
+					output_workbook.setFormula(rowCounter, 0, "" + rowCounter);
+					output_workbook.setFormula(rowCounter, 1, "" + outputCostArray.get(point));
+					output_workbook.setFormula(rowCounter, 2, "" + outputEmissionsArray.get(point));
+					output_workbook.setFormula(rowCounter, 3, "" + outputViolationsArray.get(point));				
+					rowCounter++;
+					
+				}
+			}
+			
+			if (xx == 1)
+			{
+				int rowCounter = 1;
+				for (int point = 0; point < numRuns; point++) 
+				{
+					output_workbook.setFormula(rowCounter, 0, "" + rowCounter);
+					output_workbook.setFormula(rowCounter, 1, "" + FinaltotalCostArray.get(point));
+					output_workbook.setFormula(rowCounter, 2, "" + FinaltotalEmissionsArray.get(point));
+					output_workbook.setFormula(rowCounter, 3, "" + FinaltotalViolationsArray.get(point));				
+					rowCounter++;
+					
+				}
+			}
+		}	
+		
+		output_workbook.write("./Output/" + "TLO_Output_" + java.time.LocalDate.now() + "_" +  java.time.LocalTime.now() + ".xls");
 	}
+		catch (Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+		
 }
