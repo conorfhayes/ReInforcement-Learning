@@ -3,37 +3,48 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
+import com.smartxls.ChartFormat;
+import com.smartxls.ChartShape;
+import com.smartxls.RangeStyle;
+import com.smartxls.WorkBook;
+
 public class Main {
 	
 	public static int numEpisodes = 20000;
 	public static int numAgents = 9;
-	public static int numRuns = 1;
+	public static int numRuns = 50;
 	
 	public static double[] timeStepVector;
 	public static double totalCost;
 	public static double totalEmissions;
 	public static double totalViolations;
+	
+	public static ArrayList<Double> FinaltotalCostArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaltotalEmissionsArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaltotalViolationsArray = new ArrayList<Double>();
+	
+	public static ArrayList<Double> FinaloutputCostArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaloutputEmissionsArray = new ArrayList<Double>();
+	public static ArrayList<Double> FinaloutputViolationsArray = new ArrayList<Double>();
+	
 
-	
-	public static ArrayList<Double> totalCostArray = new ArrayList<Double>();
-	public static ArrayList<Double> totalEmissionsArray = new ArrayList<Double>();
-	public static ArrayList<Double> totalViolationsArray = new ArrayList<Double>();
-	
-	public static ArrayList<Double> outputCostArray = new ArrayList<Double>();
-	public static ArrayList<Double> outputEmissionsArray = new ArrayList<Double>();
-	public static ArrayList<Double> outputViolationsArray = new ArrayList<Double>();
-	
-	public static ArrayList<ArrayList<Double>> runCostResults = new ArrayList<ArrayList<Double>>();
-	public static ArrayList<ArrayList<Double>> runEmissionsResults = new ArrayList<ArrayList<Double>>();
-	public static ArrayList<ArrayList<Double>> runViolationsResults = new ArrayList<ArrayList<Double>>();
 	public static String rewardType = new String();
 	public static String scalarisation = new String();
 	
 	public static void main(String[] args) throws IOException
 	{
+		ArrayList<Double> outputCostArray = new ArrayList<Double>();
+		ArrayList<Double> outputEmissionsArray = new ArrayList<Double>();
+		ArrayList<Double> outputViolationsArray = new ArrayList<Double>();
+
+		ArrayList<ArrayList<Double>> runCostResults = new ArrayList<ArrayList<Double>>();
+		ArrayList<ArrayList<Double>> runEmissionsResults = new ArrayList<ArrayList<Double>>();
+		ArrayList<ArrayList<Double>> runViolationsResults = new ArrayList<ArrayList<Double>>();
+		
+		
 		//System.out.println("Hello");
 		int inc = 1;
-		int div = numRuns;
+		WorkBook output_workbook = new WorkBook();
 		//int starter = 1;
 		double[] globalCollector = {0,0,0,0};
 		//ArrayList<Agent> _agentsGlobal_ = new ArrayList<Agent>();
@@ -58,15 +69,16 @@ public class Main {
 			System.out.println("*************** Run " + inc + " ***************");
 			
 			int j = 1;
-			totalCostArray.clear();
-			totalEmissionsArray.clear();
-			totalViolationsArray.clear();
+			
+			ArrayList<Double> totalCostArray = new ArrayList<Double>();
+			ArrayList<Double> totalEmissionsArray = new ArrayList<Double>();
+			ArrayList<Double> totalViolationsArray = new ArrayList<Double>();
 			
 			while (j <= numEpisodes)
 			{
 				
-				rewardType = "Difference";
-				scalarisation = "linear";
+				rewardType = "Global";
+				scalarisation = "TLO";
 				timeStepVector = envGlobal.timeStep(_agentsGlobal_, j, rewardType, scalarisation);
 				
 				totalCost = timeStepVector[0];
@@ -82,13 +94,22 @@ public class Main {
 				//System.out.println("Total Violations: " + totalViolations);				
 				//System.out.println(" ");
 				
+				if (j == numEpisodes)
+				{
+					FinaltotalCostArray.add(totalCost / 1000000);
+					FinaltotalEmissionsArray.add(totalEmissions / 100000);
+					FinaltotalViolationsArray.add(totalViolations / 1000000);
+				}
+					
 				
 				j = j + 1;
 			}
 			
-			runCostResults.add(totalCostArray);
+			runCostResults.add(totalCostArray);;
 			runEmissionsResults.add(totalEmissionsArray);
 			runViolationsResults.add(totalViolationsArray);
+			
+			
 
 			
 			inc = inc + 1;			
@@ -97,7 +118,7 @@ public class Main {
 		double cost = 0;
 		double emissions = 0;
 		double violations = 0;
-
+		
 		for (int x = 0; x < numEpisodes; x ++)
 		{
 			cost = 0;
@@ -112,7 +133,7 @@ public class Main {
 				violations = violations + runViolationsResults.get(y).get(x);
 			}
 			
-			cost = cost / div; emissions = emissions / div; violations = violations / div;
+			cost = cost / numRuns; emissions = emissions / numRuns; violations = violations / numRuns;
 			cost = cost / 1000000 ; emissions = emissions / 100000; violations = violations / 1000000; 
 			outputCostArray.add(cost); outputEmissionsArray.add(emissions); outputViolationsArray.add(violations);
 		}
@@ -142,6 +163,7 @@ public class Main {
 		
 		FileWriter fw2 = new FileWriter(rewardType + "_" + scalarisation + "_" + "Violations_" + java.time.LocalDate.now() + "_" +  java.time.LocalTime.now());
 		PrintWriter pw2 = new PrintWriter(fw2);
+		
 		for (int e = 0; e < numEpisodes; e ++)
 		{
 			pw2.println(outputEmissionsArray.get(e).toString());
@@ -150,5 +172,67 @@ public class Main {
 		pw2.flush();			
 		pw2.close();
 		fw2.close();
+		
+		try
+		{
+		output_workbook.insertSheets(0, 1);
+		
+		for (int xx = 0; xx < 2; xx ++)
+		{
+			String SheetName;
+			if (xx == 0)
+			{
+				SheetName = "Run Results";
+			}
+			else
+			{
+				SheetName = "Final Results";
+				
+			}
+			output_workbook.setSheetName(xx, SheetName);
+			output_workbook.setSheet(xx);
+			
+			output_workbook.setText(0,0,"Soln No");
+			output_workbook.setText(0,1,"Cost (x10^6)");
+			output_workbook.setText(0,2,"Emissions (x10^5)");
+			output_workbook.setText(0,3,"Violations (x10^6)");
+			
+			if (xx == 0)
+			{
+				int rowCounter = 1;
+				for (int point = 0; point < numEpisodes; point++) 
+				{
+					
+					output_workbook.setFormula(rowCounter, 0, "" + rowCounter);
+					output_workbook.setFormula(rowCounter, 1, "" + outputCostArray.get(point));
+					output_workbook.setFormula(rowCounter, 2, "" + outputEmissionsArray.get(point));
+					output_workbook.setFormula(rowCounter, 3, "" + outputViolationsArray.get(point));				
+					rowCounter++;
+					
+				}
+			}
+			
+			if (xx == 1)
+			{
+				int rowCounter = 1;
+				for (int point = 0; point < numRuns; point++) 
+				{
+					output_workbook.setFormula(rowCounter, 0, "" + rowCounter);
+					output_workbook.setFormula(rowCounter, 1, "" + FinaltotalCostArray.get(point));
+					output_workbook.setFormula(rowCounter, 2, "" + FinaltotalEmissionsArray.get(point));
+					output_workbook.setFormula(rowCounter, 3, "" + FinaltotalViolationsArray.get(point));				
+					rowCounter++;
+					
+				}
+			}
+		}	
+		
+		output_workbook.write("./Output/" + rewardType + "_" + scalarisation + "_" + java.time.LocalDate.now() + "_" +  java.time.LocalTime.now() + ".xls");
 	}
-}
+		catch (Exception ex)
+		{
+			ex.printStackTrace();
+		}
+		
+	}
+	}
