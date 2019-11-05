@@ -1,9 +1,16 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.*;
 import java.lang.Math;
 
+
 public class TLO_Environment {
+	
+	
 	
 	public double[][] B = {
 						 {0.000049, 0.000015, 0.000015, 0.000015, 0.000016, 0.000017, 0.000017, 0.000018, 0.000019, 0.000020},
@@ -23,6 +30,27 @@ public class TLO_Environment {
 	
 	public Double initialPNM[] = {135.0, 73.0, 60.0, 73.0, 57.0, 20.0, 47.0, 20.0, 10.0};
 	public ArrayList<ArrayList<Double> > UHolder = new ArrayList<ArrayList<Double> >();
+	public double totalCostOutput = 0;
+	public double totalEmissionsOutput = 0;
+	public double totalViolationsOutput = 0;
+	
+	public int costInc = 0;
+	public int violationsInc = 0;
+	public int episodeSinceLastViolations = 0;
+	public int episodeSinceLastCost = 0;
+	public boolean costFlag = false;
+	public boolean violationsFlag = false;
+	
+	public ArrayList<Double> allCost = new ArrayList<Double>(); 
+	public ArrayList<Double> allViolations = new ArrayList<Double>(); 
+	public ArrayList<Double> allEmissions = new ArrayList<Double>(); 
+	
+	public double previoustotalCostOutput = 0;
+	public double previoustotalEmissionsOutput = 0;
+	public double previoustotalViolationsOutput = 0;
+	
+	public ArrayList<Double> thresholdViolations = new ArrayList<Double>();
+	public ArrayList<Double> thresholdCost = new ArrayList<Double>();
 	
 	
 	public double PDM_hold[] = {1036, 1110, 1258, 1406, 1480, 1628, 1702, 1776, 1924, 2022, 2106, 2150, 2072, 1924, 1776,
@@ -41,7 +69,7 @@ public class TLO_Environment {
 	public double P1M_minus;
 	public int percentageIncrement = 1; // 1% gen power increment
 	public int numPercentSteps = 100/percentageIncrement + 1;
-	public double[] thresHolds = {0, 0};
+	public double[] thresHolds = {0.0, 0.0};
 	
 	
 	public TLO_Agent createAgent(int id) 
@@ -63,6 +91,37 @@ public class TLO_Environment {
 	public void setP1M_minus(double P1M)
 	{
 		this.P1M_minus = P1M;
+	}
+	
+	public void setPreviousCostOutput(double costOutput)
+	{
+		this.previoustotalCostOutput = costOutput;
+	}
+	
+	public void setPreviousEmissionsOuput(double emissionsOutput)
+	{
+		this.previoustotalEmissionsOutput = emissionsOutput;
+	}
+	
+	public void setPreviousViolationsOuput(double violationsOutput)
+	{
+		this.previoustotalViolationsOutput = violationsOutput;
+	}
+	
+	public double getPreviousCostOutput()
+	{
+		return this.previoustotalCostOutput;
+	}
+	
+	public double getPreviousEmissionsOutput()
+	{
+		return this.previoustotalEmissionsOutput;
+	}
+	
+	public double getPreviousViolationsOutput()
+	{
+		return this.previoustotalViolationsOutput;
+	
 	}
 	
 	public double[] getPowerDemand(int hour)
@@ -462,8 +521,7 @@ public class TLO_Environment {
 		}
 		
 		overallCostReward = (costReward.stream().mapToDouble(a -> a).sum());
-		overallEmissionsReward = (emissionsReward.stream().mapToDouble(a -> a).sum());
-		//overallPenalty = violationPenalty;	
+		overallEmissionsReward = (emissionsReward.stream().mapToDouble(a -> a).sum());	
 		overallPenalty = getConstraintViolationsHour(hour, PNM, previousPNM, agent_);
 						
 		reward = -(overallCostReward + overallEmissionsReward + overallPenalty);
@@ -494,7 +552,6 @@ public class TLO_Environment {
 		double overallPenalty = 0;
 		double[] rewardArray = {0,0,0,0};
 		int E = 10;
-		//ArrayList<Double> previousPNM = new ArrayList<Double>();
 		ArrayList<ArrayList<Double>> UHolder = _agent.UHolder;
 		
 		for (int j = 0; j < _agents_.size(); j++)
@@ -564,8 +621,6 @@ public class TLO_Environment {
 		{
 			P1M_minus = getSlackPowerHour(previousPNM, hour - 1);
 		}	
-		
-		//System.out.println(P1M_minus);
 		
 		if (P1M - P1M_minus > 80)
 		{
@@ -727,24 +782,169 @@ public class TLO_Environment {
 	
 	return rewardArray;
 	}	
-
-
-
 	
-	private double getP1M_minus_D() {
-		// TODO Auto-generated method stub
-		return 0;
-	}
+	 static ArrayList<Double> removeDuplicates(ArrayList<Double> list) {
+
+	        // Store unique items in result.
+	        ArrayList<Double> result = new ArrayList<>();
+
+	        // Record encountered Strings in HashSet.
+	        HashSet<Double> set = new HashSet<>();
+
+	        // Loop over argument list.
+	        for (Double item : list) {
+
+	            // If String is not in set, add it to the list and the set.
+	            if (!set.contains(item)) {
+	                result.add(item);
+	                set.add(item);
+	            }
+	        }
+	        return result;
+	    }
+
+
 
 	public double[] timeStep(ArrayList<TLO_Agent> _agents_, int j, String rewardType, String scalarization)
 	{
-		this.thresHolds[0] = -10000000; // -10000000, -2800000
-		this.thresHolds[1] = -2700000;
+		this.thresHolds[0] = -300000000000L;
+		this.thresHolds[1] = -60000000L;
+		
+		//this.thresHolds[0] = -5000000;
+		//this.thresHolds[1] = -2600000;
+		//-10000000, -28000000
+		
+		/*if (j == 1)
+		{
+			this.thresHolds[0] = 0;
+			this.thresHolds[1] = 0;
+		}
+		
+		else
+		{
+			this.thresHolds[0] = Collections.max(allViolations) + (Collections.max(allViolations) * 0.125);
+			this.thresHolds[1] = Collections.max(allCost) + (Collections.max(allCost) * 0.125);
+			//System.out.println(this.thresHolds[0]);
+			//System.out.println(this.thresHolds[1]);
+			//this.thresHolds[0] = Collections.max(allViolations);
+			//this.thresHolds[1] = Collections.max(allCost);
+		}*/
+	
+		
+		/*if (j == 1)
+		{
+			this.thresHolds[0] = 0;
+			this.thresHolds[1] = 0;
+		}
+		
+		if (j > 10)
+		{
+		ArrayList<Double> uniqueViolations = removeDuplicates(allViolations);
+		Collections.sort(allViolations, Collections.reverseOrder());
+		
+		ArrayList<Double> uniqueCost = removeDuplicates(allCost);
+		Collections.sort(uniqueCost, Collections.reverseOrder());
+		
+		ArrayList<Double> topCost = new ArrayList<Double>(10);
+		for(int i = 0; i < 10; i++) {
+			topCost.add(uniqueCost.get(i));
+		}
+		
+		
+		ArrayList<Double> topViolations = new ArrayList<Double>(10);
+		for(int i = 0; i < 10; i++) {
+			topViolations.add(uniqueViolations.get(i));
+		}
+		
+		if (episodeSinceLastViolations < 500)
+		{
+			if (violationsFlag == false)
+		{
+				this.thresHolds[0] = Collections.max(allViolations);
+		}
+			else
+		{
+			//this.thresHolds[0] = topViolations.get(violationsInc);
+			this.thresHolds[0] = this.thresHolds[0];
+		}
+			episodeSinceLastViolations ++;
+		}
+		
+		if (episodeSinceLastCost < 500)
+		{
+			if (costFlag == false)
+			{
+			this.thresHolds[1] = Collections.max(allCost);
+			}
+			else
+			{
+				//System.out.println(topCost);				
+				//this.thresHolds[1] = topCost.get(costInc);
+				this.thresHolds[1] = this.thresHolds[1];
+			}
+			episodeSinceLastCost ++;
+			//System.out.println("Cost: " + this.thresHolds[1]);
+			
+		}
+		
+		if (episodeSinceLastViolations >= 500)
+		{
+			if (violationsInc < 9)
+			{
+				violationsInc = violationsInc;
+				violationsInc ++;
+			}
+			else
+			{
+				violationsInc = 9;
+			}
+			
+			//this.thresHolds[0] = topViolations.get(violationsInc);;
+			//episodeSinceLastViolations = 0;
+			violationsFlag = true;
+			double top_twenty_ = Collections.max(allViolations) + (Collections.max(allViolations) * 1);
+			this.thresHolds[0] = top_twenty_;
+			//System.out.println("Top Twenty: " + top_twenty_);
+
+		}
+		
+		if (episodeSinceLastCost >= 500)
+		{
+			if (costInc < 9)
+			{
+				costInc = costInc;
+				costInc ++;
+			}
+			else
+			{
+				costInc = 9;
+			}
+			
+			//System.out.println("Cost: " + this.thresHolds[1]);
+			//this.thresHolds[1] = topCost.get(costInc);
+			//episodeSinceLastCost = 0;
+			//System.out.println("Here!!");
+			double top_twenty = Collections.max(allCost) + (Collections.max(allCost) * 0.4);
+			this.thresHolds[1] = top_twenty;
+			costFlag = true;
+			
+		}
+		}*/
+		
+		
+		
+		
+		//this.thresHolds[0] = Math.max(getPreviousViolationsOutput(), -totalViolationsOutput);
+		//this.thresHolds[1] =  Math.max(getPreviousCostOutput(), -totalCostOutput);
+		
+		setPreviousCostOutput(-totalCostOutput);
+		setPreviousEmissionsOuput(-totalEmissionsOutput);
+		setPreviousViolationsOuput(-totalViolationsOutput);
+		
 		
 		double[] _thresHolds_ = Arrays.copyOf (this.thresHolds, this.thresHolds.length);
-		//Double [] thresholds_ = new Double[](P1M_minus); 
 		
-		double[] timeStepVector = {0,0,0,0};
+		double[] timeStepVector = {0,0,0,0,0,0};
 		double[] rewardReturnHolder = {0,0,0,0};
 		this.scalarization = scalarization;
 		int place = j;
@@ -782,7 +982,6 @@ public class TLO_Environment {
 		{
 			b = b + 1;
 			PNM.clear();
-			//System.out.println(_thresHolds_[0] + " " + _thresHolds_[1]);
 			powerArray = getPowerDemand(hour);
 			currentPDM = powerArray[0]; previousPDM = powerArray[1]; PDM_delta = powerArray[2];
 			
@@ -801,11 +1000,8 @@ public class TLO_Environment {
 				{
 					previousAgentPower = agent_.getPreviousAgentPower();
 				}
-				//System.out.println("Previous Agent Power: " + previousAgentPower);
-				
-				//currentState = agent_.getState();
+
 				currentState = agent_.getStateMARL(hour, agent_, previousAgentPower);
-				//System.out.println(agent_.getAgentID());
 				
 				int minAllowedAction = 0;
 				int maxAllowedAction = 0;
@@ -825,7 +1021,6 @@ public class TLO_Environment {
 					maxAllowedPosition = (int) (agent_.UHolder.get(id).get(1) - 0);
 				}
 				
-				//System.out.print("maxAllowedPosition: " + minAllowedPosition);
 				double minPosLessOffset = minAllowedPosition - agent_.genOffsets[id+1];
 				double maxPosLessOffset = maxAllowedPosition - agent_.genOffsets[id+1];
 				double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
@@ -866,9 +1061,7 @@ public class TLO_Environment {
 					
 					reward = rewardReturnHolder[0]; cost = rewardReturnHolder[1]; emissions = rewardReturnHolder[2];
 					violations = rewardReturnHolder[3];
-					
-					//emissionsTotal.add(emissions);  rewardTotal.add(reward); violationsTotal.add(violations);
-					//costTotal.add(cost);
+
 				}
 				
 				if (rewardType == "Difference")
@@ -891,15 +1084,10 @@ public class TLO_Environment {
 				}
 				
 				previousState = _agent.getStateMARL(hour, _agent, previousAgentPower);
-				//previousState = _agent.getState();
 				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower());
-				//currentState = _agent.getNextState(PDM_delta, _agent.getPreviousAgentPower(), _agent);
-				_agent.saveCurrentState(currentState);
 				
-				//public int getStateMARL(int hour, Agent agent, double power_)
-				
+				_agent.saveCurrentState(currentState);				
 				_agent.setPreviousAgentPower(_agent.getAgentPower());
-				//System.out.println(_agent.getAgentPower());
 				_agent.updateQValuesDEED(previousState, currentState, action, -cost, -emissions, -violations);				
 			}
 			
@@ -913,18 +1101,26 @@ public class TLO_Environment {
 					
 					
 			}	
-		double totalCost = costTotal.stream().mapToDouble(ii -> ii).sum();
-		double totalEmissions = emissionsTotal.stream().mapToDouble(ik -> ik).sum();
-		double totalViolations = violationsTotal.stream().mapToDouble(il -> il).sum();
+		totalCostOutput = costTotal.stream().mapToDouble(ii -> ii).sum();
+		totalEmissionsOutput = emissionsTotal.stream().mapToDouble(ik -> ik).sum();
+		totalViolationsOutput = violationsTotal.stream().mapToDouble(il -> il).sum();
 		double totalReward = rewardTotal.stream().mapToDouble(ix -> ix).sum();
 		
-		timeStepVector[0] = totalCost; timeStepVector[1] = totalEmissions; timeStepVector[2] = totalReward;
-		timeStepVector[3] = totalViolations;
+		timeStepVector[0] = totalCostOutput; timeStepVector[1] = totalEmissionsOutput; timeStepVector[2] = totalReward;
+		timeStepVector[3] = totalViolationsOutput;
 		
+		allCost.add(-totalCostOutput); allViolations.add(-totalViolationsOutput); 
+		allEmissions.add(-totalEmissionsOutput); 
+		
+		
+		timeStepVector[4] = this.thresHolds[0];
+		timeStepVector[5] = this.thresHolds[1];
 		
 		return timeStepVector;
 		
 	}
+
+	
 	
 
 }
