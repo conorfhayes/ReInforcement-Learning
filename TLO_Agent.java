@@ -488,8 +488,8 @@ public class TLO_Agent {
 			}
 			
 			float oldQ = qTable[previousState][selectedAction][i];
-			//maxQ = getMaxQValue(currentState,i);
-			maxQ = 0;
+			maxQ = getMaxQValue(currentState,i);
+			//maxQ = 0;
 			newQ = oldQ + this.alpha * (reward + this.gamma * maxQ - oldQ);
 			qTable[previousState][selectedAction][i] = (float) newQ;
 			
