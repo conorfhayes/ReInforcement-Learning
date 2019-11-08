@@ -1,18 +1,23 @@
 import numpy as np
+from sympy import pretty_print as pp, latex
+from sympy.abc import a, b, n
 from mizani.breaks import log_breaks
 from numpy import array
 import math
 from random import randint
 import time, os, fnmatch, shutil
 from collections import Counter
-import matplotlib.pyplot as plt
+
 from random import seed
 import random
 from plotnine import *
 import plotnine as p9
 import pandas as pd
+import matplotlib.pyplot as plt
 from pandas import ExcelWriter
 from pandas import ExcelFile
+import matplotlib.pyplot as plt
+import matplotlib.image as img
 
 def split(a, n):
     k, m = divmod(len(a), n)
@@ -37,22 +42,10 @@ def costGraph(df, numEpisodes):
     df1 = df.melt(id_vars=["Counter"], var_name="Reward", value_name="Value")
     print(df1)
 
-    color_dict = {'Global (+)': 'green',
-                  'Global (λ)': 'green',
-                  'TLO Global': 'red',
-                  'Global': 'blue',
-                  'Difference': 'blue',
-                  'Difference (+)': 'blue',
-                  'Difference (λ)': 'blue',
-                  'TLO Cost-Violations': 'black',
-                  'TLO Violations-Cost': 'orange',
-                  'TLO Violations-Emissions': 'purple',
-                  'TLO-1': 'blue',
-                  'TLO-2': 'yellow',
-                  'TLO-3': 'green',
-                  'TLO-4': 'black',
-                  'TLO-5': 'orange',
-                  'TLO-6': 'grey'
+    color_dict = {'Global (+)':'green',
+                  'Global (λ)':'green','TLO Global':'red','Global':'blue','Difference':'blue','Difference (+)':'blue','Difference (λ)':'blue','TLO Cost-Violations':'black',
+                  'TLO Violations-Cost':'orange','TLO Violations-Emissions':'purple','TLO-1':'blue','TLO-2':'yellow','TLO-3':'green',
+                  'TLO-4':'black','TLO-5':'orange','TLO-6':'grey','Violations Threshold':'blue','Cost Threshold':'green'
                   }
 
     costG = (ggplot(df1) +
@@ -62,22 +55,26 @@ def costGraph(df, numEpisodes):
             #geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color= df['difference']) +
             #geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color= df['local']) +
             #scale_x_continuous(lim = (0, max(x_axis)), breaks= range(0,len(x_axis)+ 5000, 5000)) +
-            scale_y_continuous(limits = (2.5, max(df1['Value']))
-                               , breaks = np.arange(2.5, max(df1['Value']) + 0.2, 0.2)
+            scale_y_continuous(limits = (2.5, 4.3)
+                               , breaks = np.arange(2.5, 4.5, 0.2)
                                ) +
             ylab(" Cost ($ x 10^6) ") +
             xlab(" Episode ") +
-            ggtitle(" ") +
-            theme_matplotlib() +
-            theme(axis_text_y = element_text(size =6)) +
-            theme(axis_text_x=element_text(size=6)) +
-            theme(legend_position="top",
-            legend_text=element_text(size=6),
-            legend_key=element_rect(colour="white", fill="white"),
-            legend_title=element_blank())
-            + guides(color=guide_legend(nrow=1)))
+             ggtitle(" ") +
+             theme_matplotlib() +
+             theme(text=element_text(size=12)) +
+             theme(axis_text_y=element_text(size=10)) +
+             theme(axis_text_x=element_text(size=10)) +
+             theme(legend_position=(0.5, .85),
+                   legend_text=element_text(size=8),
+                   legend_key=element_rect(colour="white", fill="white"),
+                   legend_title=element_blank())
+            + guides(color=guide_legend(ncol=3)))
 
     print(costG)
+
+    #plt.plot([df1['Counter']], [df1['Value']], values=df1['Reward'].apply(lambda x: color_dict[x]))
+    #df1.plot()
 
 
 def emissionsGraph(df, numEpisodes):
@@ -104,7 +101,9 @@ def emissionsGraph(df, numEpisodes):
                   'TLO-3': 'green',
                   'TLO-4': 'black',
                   'TLO-5': 'orange',
-                  'TLO-6': 'grey'
+                  'TLO-6': 'grey',
+                  'Violations Threshold': 'blue',
+                  'Cost Threshold': 'green'
                   }
 
     emissionsG = (ggplot(df1) +
@@ -117,16 +116,18 @@ def emissionsGraph(df, numEpisodes):
             #scale_y_continuous(lim = (2.5, max(df1['Value'])), breaks = np.arange(2.5, max(df1['Value']) + 0.2, 0.2)) +
             ylab(" Emissions ($ x 10^5) ") +
             xlab(" Episode ") +
-            ggtitle(" ") +
-            theme_matplotlib() +
-            theme(axis_text_y = element_text(size =6)) +
-            theme(axis_text_x=element_text(size=6)) +
-            theme(legend_position="top",
-            legend_text=element_text(size=6),
-            legend_key=element_rect(colour="white", fill="white"),
-            legend_title=element_blank())
-            + guides(color=guide_legend(nrow=1))
-            + scale_y_continuous(trans = 'log10', labels = lambda l: ["10^%d" % math.log(v,10) for v in l] ))
+                  ggtitle(" ") +
+                  theme_matplotlib() +
+                  theme(text=element_text(size=12)) +
+                  theme(axis_text_y=element_text(size=10)) +
+                  theme(axis_text_x=element_text(size=10)) +
+                  theme(legend_position=(0.5, .85),
+                        legend_text=element_text(size=8),
+                        legend_key=element_rect(colour="white", fill="white"),
+                        legend_title=element_blank())
+                  + guides(color=guide_legend(ncol=3))
+              + scale_y_log10(limits= (1, 1e8), labels = lambda l: ["$10^%d$" % math.log(v,10) for v in l]))
+
 
     print(emissionsG)
 
@@ -154,7 +155,9 @@ def violationsGraph(df, numEpisodes):
                   'TLO-3': 'green',
                   'TLO-4': 'black',
                   'TLO-5': 'orange',
-                  'TLO-6': 'grey'
+                  'TLO-6': 'grey',
+                  'Violations Threshold': 'blue',
+                  'Cost Threshold' : 'green'
                   }
 
     violationsG = (ggplot(df1) +
@@ -164,19 +167,21 @@ def violationsGraph(df, numEpisodes):
             #geom_line(aes(x='x', y=df['difference']), alpha=0.5, size=0.5, color= df['difference']) +
             #geom_line(aes(x='x', y=df['local']), alpha=0.5, size=0.5, color= df['local']) +
             #scale_x_continuous(lim = (0, max(x_axis)), breaks= range(0,len(x_axis)+ 5000, 5000)) +
-            scale_y_continuous(limits = (1000, max(df1['Value']))) +
+            scale_y_continuous(limits = (1000, 10000)) +
             ylab(" Violations (1 x 10^6) ") +
             xlab(" Episode ") +
-            ggtitle(" ") +
-            theme_matplotlib() +
-            theme(axis_text_y = element_text(size =6)) +
-            theme(axis_text_x=element_text(size=6)) +
-            theme(legend_position="top",
-            legend_text=element_text(size=6),
-            legend_key=element_rect(colour="white", fill="white"),
-            legend_title=element_blank())
-            + guides(color=guide_legend(nrow=1))
-            )
+                   ggtitle(" ") +
+                   theme_matplotlib() +
+                   theme(text=element_text(size=12)) +
+                   theme(axis_text_y=element_text(size=10)) +
+                   theme(axis_text_x=element_text(size=10)) +
+                   theme(legend_position=(0.5, .85),
+                         legend_text=element_text(size=8),
+                         legend_key=element_rect(colour="white", fill="white"),
+                         legend_title=element_blank())
+                   + guides(color=guide_legend(ncol=3)))
+
+
 
     print(violationsG)
 
@@ -184,7 +189,7 @@ Difference_hypervolume = pd.read_excel ("~/Desktop/Results/Difference_hypervolum
 Difference_linear = pd.read_excel ("~/Desktop/Results/Difference_linear.xls", sheet_name = "Run Results")
 Global_hypervolume = pd.read_excel ("~/Desktop/Results/Global_hypervolume.xls", sheet_name = "Run Results")
 Global_linear = pd.read_excel ("~/Desktop/Results/Global_linear.xls", sheet_name = "Run Results")
-TLO_Violations_Cost = pd.read_excel ("~/Desktop/Results/TLO_Output_DynamicThresholdV2.xls", sheet_name = "Run Results")
+TLO_Violations_Cost = pd.read_excel ("~/Desktop/Results/TLO_Output_DynamicThresholdV3.xls", sheet_name = "Run Results")
 TLO_Violations_Emissions = pd.read_excel ("~/Desktop/Results/TLO_Output_Violations_Emissions.xls", sheet_name = "Run Results")
 TLO_Violations_Cost_Violations = pd.read_excel ("~/Desktop/Results/TLO_Output_Cost_Violations.xls", sheet_name = "Run Results")
 
@@ -202,6 +207,9 @@ Difference_Cost_Linear_df = Difference_linear[['Cost']]
 Difference_Cost_Hypervolume_df = Difference_hypervolume[['Cost']]
 Global_Cost_Linear_df = Global_linear[['Cost']]
 Global_Cost_Hypervolume_df = Global_linear[['Cost']]
+
+TLO_Global_CostThreshold_df = TLO_Violations_Cost[['Cost Threshold']]
+TLO_Global_ViolationsThreshold_df = TLO_Violations_Cost[['Violations Threshold']]
 
 TLO1_Cost_df = TLO1_df[['Cost']]
 TLO2_Cost_df = TLO2_df[['Cost']]
@@ -265,6 +273,14 @@ for x in TLO_Global_VE_Cost_df.values:
 TLO_Global_Cost_array = []
 for x in TLO_Global_Cost_df.values:
     TLO_Global_Cost_array.append(float (x))
+
+TLO_Global_CostThreshold_array = []
+for x in TLO_Global_CostThreshold_df.values:
+    TLO_Global_CostThreshold_array.append(float (x))
+
+TLO_Global_ViolationsThreshold_array = []
+for x in TLO_Global_ViolationsThreshold_df.values:
+    TLO_Global_ViolationsThreshold_array.append(float (x))
 
 Difference_Cost_Linear_array = []
 for x in Difference_Cost_Linear_df.values:
@@ -411,6 +427,8 @@ Global_Emissions_Hypervolume_array = []
 for x in Global_Emissions_Hypervolume_df.values:
     Global_Emissions_Hypervolume_array.append(float (x))
 
+TLO_Global_ViolationsThreshold_Average = list(split(TLO_Global_ViolationsThreshold_array, int(span)))
+TLO_Global_CostThreshold_Average = list(split(TLO_Global_CostThreshold_array, int(span)))
 TLO_Global_CV_Cost_Average = list(split(TLO_Global_CV_Cost_array, int(span)))
 TLO_Global_VE_Cost_Average = list(split(TLO_Global_VE_Cost_array, int(span)))
 TLO_Global_Cost_Average = list(split(TLO_Global_Cost_array, int(span)))
@@ -452,6 +470,9 @@ TLO3_Emissions_df_Average = list(split(TLO3_Emissions_array, int(span)))
 TLO4_Emissions_df_Average = list(split(TLO4_Emissions_array, int(span)))
 TLO5_Emissions_df_Average = list(split(TLO5_Emissions_array, int(span)))
 TLO6_Emissions_df_Average = list(split(TLO6_Emissions_array, int(span)))
+
+TLO_Global_ViolationsThreshold_Average = computeAverage(TLO_Global_ViolationsThreshold_Average)
+TLO_Global_CostThreshold_Average = computeAverage(TLO_Global_CostThreshold_Average)
 
 TLO_Global_CV_Cost_Average = computeAverage(TLO_Global_CV_Cost_Average)
 TLO_Global_VE_Cost_Average = computeAverage(TLO_Global_VE_Cost_Average)
@@ -625,27 +646,46 @@ fixedThresholdsViolations_optimal = pd.DataFrame({
                             })
 
 
+#
+#
+#TLO_Global_ViolationsThreshold_Average = computeAverage(TLO_Global_ViolationsThreshold_Average)#
+#TLO_Global_CostThreshold_Average = computeAverage(TLO_Global_CostThreshold_Average)
+
+costDataFrame_Threshold = pd.DataFrame({
+                              'TLO Global': TLO_Global_Cost_Average,
+                              'Cost Threshold': TLO_Global_CostThreshold_Average
+
+                            })
+
+violtionsDataFrame_Threshold = pd.DataFrame({
+                            'TLO Global': TLO_Global_Violations_Average,
+                            'Violations Threshold': TLO_Global_ViolationsThreshold_Average
+
+})
 
 #Hypervolume Graphs
-#violationsGraph(violationsDataFrame_Hypervolume, 20000)
-#costGraph(costDataFrame_Hypervolume, 20000)
-#emissionsGraph(emissionsDataFrame_Hypervolume, 20000)
+#violationsDataFrame_HypervolumeGraph = violationsGraph(violationsDataFrame_Hypervolume, 20000)
+#costDataFrame_HypervolumeGraph = costGraph(costDataFrame_Hypervolume, 20000)
+#emissionsDataFrame_HypervolumeGraph = emissionsGraph(emissionsDataFrame_Hypervolume, 20000)
+
+
 
 #Linear Graphs
-#violationsGraph(violationsDataFrame_Linear, 20000)
-#costGraph(costDataFrame_Linear, 20000)
-#emissionsGraph(emissionsDataFrame_Linear, 20000)
+violationsGraph(violationsDataFrame_Linear, 20000)
+costGraph(costDataFrame_Linear, 20000)
+emissionsGraph(emissionsDataFrame_Linear, 20000)
 
 #Varying Objective Ordering Graphs
-#violationsGraph(violationsDataFrame_TLO, 20000)
-#costGraph(costDataFrame_TLO, 20000)
-#emissionsGraph(emissionsDataFrame_TLO, 20000)
+violationsGraph(violationsDataFrame_TLO, 20000)
+costGraph(costDataFrame_TLO, 20000)
+emissionsGraph(emissionsDataFrame_TLO, 20000)
 
 #Fixed Thresholds Experimentation Graphs
 violationsGraph(fixedThresholdsViolations, 20000)
 costGraph(fixedThresholdsCost, 20000)
 emissionsGraph(fixedThresholdsEmissions, 20000)
 
-#violationsGraph(fixedThresholdsViolations_optimal, 20000)
-#costGraph(fixedThresholdsCost_optimal, 20000)
+#Thresholf Graph
+violationsGraph(violtionsDataFrame_Threshold, 20000)
+costGraph(costDataFrame_Threshold, 20000)
 #emissionsGraph(fixedThresholdsEmissions_optimal, 20000)
