@@ -1,3 +1,4 @@
+package RL_DEED;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -8,52 +9,56 @@ public class NeuralNetwork {
 	public int hiddenSize1 = 0;
 	public int hiddenSize2 = 0;
 	public int outputSize = 0;
-	public int state;
+	public int state = 0;
 	public double learningRate = 0.0;
-	//public ArrayList<Double> bias_1 = new ArrayList<Double>();
-	//public ArrayList<Double> bias_2 = new ArrayList<Double>();
+	public double[][] bias_1 = new double[0][0];
+	public double[][] bias_2 = new double[0][0];
+	public double[][] bias_3 = new double[0][0];
+	public double[][] hidden1_weights = new double[0][0];
+	public double[][] hidden2_weights = new double[0][0];
+	public double[][] output_weights = new double[0][0];
 	
-	public NeuralNetwork(double learningRate, int state, int inputSize, int hiddenSize1, int hiddenSize2, int outputSize)
+	public NeuralNetwork(double learningRate, int inputSize, int hiddenSize1, int hiddenSize2, int outputSize)
 		
 		{
-			this.state = state;
 			this.learningRate = learningRate;
 			this.inputSize = inputSize;
 			this.hiddenSize1 = hiddenSize1;
 			this.hiddenSize2 = hiddenSize2;
 			this.outputSize = outputSize;
+			initialiseWeightsAndBias();
 	        		
 		}
 	
-	public ArrayList<ArrayList<Double>> bias_1 = new ArrayList<ArrayList<Double>>();
-	public ArrayList<ArrayList<Double>> bias_2 = new ArrayList<ArrayList<Double>>();
-	public ArrayList<ArrayList<Double>> hidden1_weights = new ArrayList<ArrayList<Double>>();
-	public ArrayList<ArrayList<Double>> hidden2_weights = new ArrayList<ArrayList<Double>>();
-	public ArrayList<ArrayList<Double>> hidden3_weights = new ArrayList<ArrayList<Double>>();
+	public void setState(int state)
+	{
+		this.state = state;
+	}
 	
 	public void initialiseWeightsAndBias()
 	
 	{
 		this.bias_1 = RandomUniform(-0.5, 0.5, 1, hiddenSize1);
 		this.bias_2 = RandomUniform(-0.5, 0.5, 1, hiddenSize2);
+		this.bias_3 = RandomUniform(-0.5, 0.5, 1, outputSize);
 		
 		this.hidden1_weights = RandomUniform(-1.0, 1.0, inputSize, hiddenSize1);
 		this.hidden2_weights = RandomUniform(-1.0, 1.0, hiddenSize1, hiddenSize2);
-		this.hidden3_weights = RandomUniform(-1.0, 1.0, hiddenSize2, outputSize);
+		this.output_weights = RandomUniform(-1.0, 1.0, hiddenSize2, outputSize);
 	}
 	
-	public ArrayList<ArrayList<Double>> RandomUniform (Double number1, Double number2, int size1, int size2)
+	public double[][] RandomUniform (Double number1, Double number2, int size1, int size2)
 	
 	{
-		ArrayList<ArrayList<Double>> arrayFill = new ArrayList<ArrayList<Double>>();
+		double [][] arrayFill = new double[size1][size2];	
 		
 		for (int x = 0; x < size1; x ++)
-		{			
+		{
 			for (int i = 0; i < size2; i ++ )				
 			{	
 				Random r = new Random();
 				Double fillValue = r.nextDouble() * (number2 - number1) + number1;
-				arrayFill.get(x).add(i, fillValue);
+				arrayFill[x][i] = fillValue;
 			}
 			
 		}
@@ -61,7 +66,7 @@ public class NeuralNetwork {
 		return arrayFill;
 	}
 	
-	public ArrayList<ArrayList<Double>> getBias(int layer)
+	public double[][] getBias(int layer)
 	{
 		if (layer == 1)
 		{
@@ -73,11 +78,16 @@ public class NeuralNetwork {
 			return this.bias_2;
 		}
 		
+		else if (layer == 3)
+		{
+			return this.bias_3;
+		}
+		
 		System.out.println("Error :: Cannot Return Correct Bias, Check Layer Input");
 		return this.bias_1;
 	}
 	
-	public void setBias(ArrayList<ArrayList<Double>> bias, int layer)
+	public void setBias(double[][] bias, int layer)
 	{
 		if (layer == 1)
 		{
@@ -95,7 +105,7 @@ public class NeuralNetwork {
 		
 	}
 	
-	public ArrayList<ArrayList<Double>> getWeights(int layer)
+	public double[][] getWeights(int layer)
 	{
 		if (layer == 1)
 		{
@@ -109,14 +119,14 @@ public class NeuralNetwork {
 		
 		else if (layer == 3)
 		{
-			return this.hidden3_weights;
+			return this.output_weights;
 		}
 		
 		System.out.println("Error :: Cannot Return Correct Weights, Check Layer Input");
-		return this.hidden3_weights;
+		return this.output_weights;
 	}
 	
-	public void setWeights(ArrayList<ArrayList<Double>> weights, int layer)
+	public void setWeights(double[][] weights, int layer)
 	{
 		if (layer == 1)
 		{
@@ -132,7 +142,7 @@ public class NeuralNetwork {
 		
 		else if (layer == 3)
 		{
-			this.hidden3_weights = weights;
+			this.output_weights = weights;
 			return;
 		}
 		
@@ -141,55 +151,114 @@ public class NeuralNetwork {
 		
 	}
 	
-	public ArrayList<ArrayList<Double>> transpose(ArrayList<ArrayList<Double>> matrixIn)
+	public static double[][] transpose(double[][] a) {        
+		int m = a.length;
+        int n = a[0].length;
+        
+        double[][] b = new double[n][m];
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                b[j][i] = a[i][j];
+            }
+        }
+        return b;
+    }
 	
-	{
-		ArrayList<ArrayList<Double>>matrixOut = new ArrayList<ArrayList<Double>>();
-	    if (!matrixIn.isEmpty()) {
-	        int noOfElementsInList = matrixIn.get(0).size();
-	        for (int i = 0; i < noOfElementsInList; i++) {
-	            ArrayList<Double> col = new ArrayList<Double>();
-	            for (ArrayList<Double> row : matrixIn) {
-	                col.add(row.get(i));
-	            }
-	            matrixOut.add(col);
-	        }
-	    }
+	public static double[][] add(double[][] a, double[][] b) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] c = new double[m][n];
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                c[i][j] = a[i][j] + b[i][j];
+            }
+        }
+        return c;
+    }
+	
+	public static double[][] subtract(double[][] a, double[][] b) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] c = new double[m][n];
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                c[i][j] = a[i][j] - b[i][j];
+            }
+        }
+        return c;
+    }
+	
+	public static double[][] dot(double[][] a, double[][] b) {
+        int m1 = a.length;
+        int n1 = a[0].length;
+        int m2 = b.length;
+        int n2 = b[0].length;
+        if (n1 != m2) {
+            throw new RuntimeException("Illegal matrix dimensions.");
+        }
+        double[][] c = new double[m1][n2];
+        for (int i = 0; i < m1; i++) {
+            for (int j = 0; j < n2; j++) {
+                for (int k = 0; k < n1; k++) {
+                    c[i][j] += a[i][k] * b[k][j];
+                }
+            }
+        }
+        return c;
+    }
+	
+	public static double[][] multiply(double[][] x, double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
 
-	    return matrixOut;
-	}
+        if (x.length != m || x[0].length != n) {
+            throw new RuntimeException("Illegal matrix dimensions.");
+        }
+        double[][] y = new double[m][n];
+        for (int j = 0; j < m; j++) {
+            for (int i = 0; i < n; i++) {
+                y[j][i] = a[j][i] * x[j][i];
+            }
+        }
+        return y;
+    }
+
 	
 	public ArrayList<ArrayList<Double>> dotProduct (ArrayList<ArrayList<Double>> matrix1, ArrayList<ArrayList<Double>> matrix2)
 		
 		{
 		
-			ArrayList<ArrayList<Double>> arrayFill = new ArrayList<>(matrix1.size());
+			ArrayList<ArrayList<Double>> arrayFill = new ArrayList<ArrayList<Double>>(matrix1.size());
 			
-			for (int i = 0; i < matrix2.get(0).size(); i++)
+			for (int i = 0; i < matrix1.size(); i ++)
 			{
 				arrayFill.add(new ArrayList());
-			}
-			
-			
-			for (int row = 0; row < arrayFill.size(); row ++)
 				
-			{			
-				for (int col = 0; col < arrayFill.get(0).size(); col ++ )		
+				for (int j = 0; j < matrix2.get(0).size(); j ++)
+				{
+					arrayFill.get(i).add(0.0);
+				}
+
+				
+			}			
+			
+			double cell = 0;
+			
+			for (int i = 0; i < matrix1.size(); i ++)	
+				
+			{	
+				for (int j = 0; j < matrix2.get(0).size(); j ++)
 					
 				{	
-					double cell = 0;
-					
-					for (int j = 0; j < matrix2.size(); j++)
-					
-					{
-						cell += matrix1.get(row).get(j) * matrix2.get(j).get(col);
+					//System.out.println("Array Fill at 0 " + arrayFill.get(0).get(1));
+					for (int k = 0; k < matrix1.get(0).size(); k ++ )		
 						
-					}
-					
-					arrayFill.get(row).set(col, cell);
-					
-				}
-			}
+					{								
+						cell += matrix1.get(i).get(k) * matrix2.get(k).get(j);
+						arrayFill.get(i).set(j, cell);						
+					}						
+				}				
+			}		
 			
 			return arrayFill;
 		}
@@ -213,7 +282,17 @@ public class NeuralNetwork {
 	public ArrayList<ArrayList<Double>> addMatrix (ArrayList<ArrayList<Double>> matrix1, ArrayList<ArrayList<Double>> matrix2)
 	
 	{	
-		ArrayList<ArrayList<Double>> arrayFill = new ArrayList<ArrayList<Double>>();
+		ArrayList<ArrayList<Double>> arrayFill = new ArrayList<ArrayList<Double>>(matrix1.size());
+		
+		for (int i = 0; i < matrix1.size(); i ++)
+		{
+			arrayFill.add(new ArrayList());
+			
+			for (int j = 0; j < matrix2.get(0).size(); j ++)
+			{
+				arrayFill.get(i).add(0.0);
+			}			
+		}
 		
 		for (int i = 0; i < matrix1.size(); i++)
 		{
@@ -242,109 +321,111 @@ public class NeuralNetwork {
 		return arrayFill;
 	}
 	
-	public ArrayList<ArrayList<Double>> sigmoid(ArrayList<ArrayList<Double>> hidden)
+	public static double[][] sigmoid(double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] z = new double[m][n];
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                z[i][j] = (1.0 / (1 + Math.exp(-a[i][j])));
+            }
+        }
+        return z;
+    }
+	
+	public static double[][] sigmoid_derivative(double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] z = new double[m][n];
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                z[i][j] = (1.0 / (1 + Math.exp(-a[i][j])));
+            }
+        }
+        return z;
+    }
+	
+	
+	
+	public double[][] feedForwardStep (int layer, double[][] nodes)
+	
 	{
-		for (int i = 0; i < hidden.size(); i++)
-		{
-		    for (int j = 0; j < hidden.get(i).size(); j++)
-		    {
-		    	hidden.get(i).set(j, 1.0/(1.0+(Math.exp(-j))) );
-		    } 
-		}
-		
-		return hidden;
-	}
-	
-	public ArrayList<ArrayList<Double>> sigmoid_derivative(ArrayList<ArrayList<Double>> hidden)
-	{
-		for (int i = 0; i < hidden.size(); i++)
-		{
-		    for (int j = 0; j < hidden.get(i).size(); j++)
-		    {
-		    	hidden.get(i).set(j, 1.0/(1.0+(Math.exp(-j))) );
-		    } 
-		}
-		
-		return hidden;
-	}
-	
-	
-	public ArrayList<ArrayList<Double>> feedForwardStep (int layer, ArrayList<ArrayList<Double>> nodes)
-	
-	{
-		ArrayList<ArrayList<Double>> bias = getBias(layer);
-		ArrayList<ArrayList<Double>> weights = getWeights(layer);
-		ArrayList<ArrayList<Double>> hidden_ = dotProduct(nodes, weights);
-		ArrayList<ArrayList<Double>> hidden =  addMatrix(hidden_, bias);
+		double[][] bias = getBias(layer);
+		double[][] weights = getWeights(layer);
+		//System.out.print(weights.get(0).size());
+		double[][] hidden_ = dot(nodes, weights);
+		double[][] hidden =  add(hidden_, bias);
 		//ArrayList<ArrayList<Double>> z_hidden = sigmoid(hidden_add);
 		
 		return hidden;
 	}
 	
-	public ArrayList<ArrayList<Double>> backPropagationStep (String networkType, int layer, ArrayList<ArrayList<Double>> input1, 
-			ArrayList<ArrayList<Double>> input2, ArrayList<ArrayList<Double>> input3)
+	public double[][] backPropagationStep (String networkType, int layer, double[][] input1, 
+			double[][] input2, double[][] input3)
 	
 	{
-		ArrayList<ArrayList<Double>> bias = getBias(layer);
-		ArrayList<ArrayList<Double>> weights = getWeights(layer);
-		ArrayList<ArrayList<Double>> error = new ArrayList<ArrayList<Double>>();
+		double[][] bias = getBias(layer);
+		double[][] weights = getWeights(layer);
+		double[][] error = new double[0][0];
 		
 		if (layer == 3)
 		{
-			error = subtractMatrix(input1, input2);
+			error = subtract(input1, input2);
 		}
 		
 		else
 		{
-			error = dotProduct(input1, transpose(weights));
+			error = dot(input1, transpose(weights));
 		}
 		
-		ArrayList<ArrayList<Double>> prediction = sigmoid_derivative(input2);
-		ArrayList<ArrayList<Double>> delta = dotProduct(error, prediction);
-		ArrayList<ArrayList<Double>> cost = dotProduct(transpose(input3), prediction);
+		double[][] prediction = sigmoid_derivative(input2);
+		double[][] delta = dot(error, prediction);
+		double[][] cost = dot(transpose(input3), prediction);
 		
-		ArrayList<ArrayList<Double>> learningRateMatrix = new ArrayList<ArrayList<Double>>();
-		ArrayList<ArrayList<Double>> biasMatrix = new ArrayList<ArrayList<Double>>();
+		double[][] learningRateMatrix = new double[0][0];
+		double[][] biasMatrix = new double[0][0];
 		
-		
-		for (int i = 0; i < prediction.size(); i ++)
+		if (networkType == "Expierience Replay")
 		{
-			for (int j = 0; j < prediction.get(i).size(); j ++)
+		for (int i = 0; i < prediction.length; i ++)
+		{
+			for (int j = 0; j < prediction[i].length; j ++)
 			{
-				learningRateMatrix.get(i).set(j, this.learningRate);
+				learningRateMatrix[i][j] = this.learningRate;
 			}
 		}
 		
-		setWeights(subtractMatrix(weights, dotProduct(learningRateMatrix, prediction)), layer);
+		setWeights(subtract(weights, dot(learningRateMatrix, prediction)), layer);
 		
 		int biasSum = 0;
 		
-		for (int i = 0; i < cost.size(); i ++)
+		for (int i = 0; i < cost.length; i ++)
 		{
-			for (int j = 0; j < cost.get(i).size(); j ++)
+			for (int j = 0; j < cost[i].length; j ++)
 			{
-				biasSum += cost.get(i).get(j);
+				biasSum += cost[i][j];
 			}
 		}
 		
 		double biasValue = biasSum * this.learningRate;
-		for (int i = 0; i < bias.size(); i ++)
+		for (int i = 0; i < bias.length; i ++)
 		{
-			for (int j = 0; j < bias.get(i).size(); j ++)
+			for (int j = 0; j < bias[i].length; j ++)
 			{
-				biasMatrix.get(i).set(j, biasValue);
+				biasMatrix[i][j] = biasValue;
 			}
 		}
 		
 		
-		setBias(subtractMatrix(bias, biasMatrix), layer);
+		setBias(subtract(bias, biasMatrix), layer);
+		}
 		
-		return delta;
-		
-		
-		
-		
-	
+		return delta;		
 	}
+	
+
+	
 	
 }
