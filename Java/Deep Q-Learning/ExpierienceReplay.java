@@ -9,33 +9,61 @@ public class ExpierienceReplay {
 	public double reward = 0.0;
 	public int nextState = 0;
 	public ArrayList<Integer> actionHolder = new ArrayList<Integer>();
-	public ArrayList<Integer> stateHolder= new ArrayList<Integer>();
+	public ArrayList<Double> stateHolder= new ArrayList<Double>();
 	public ArrayList<Double> rewardHolder = new ArrayList<Double>();
-	public ArrayList<Integer> nextStateHolder = new ArrayList<Integer>();
+	public ArrayList<Double> nextStateHolder = new ArrayList<Double>();
 	
 	public ExpierienceReplay()
 	
 	{
 		
-        		
+		this.actionHolder.add(25);
+		this.stateHolder.add(0.14);
+		this.rewardHolder.add(-0.015);
+		this.nextStateHolder.add(0.5465);
+		
+		this.actionHolder.add(50);
+		this.stateHolder.add(0.24);
+		this.rewardHolder.add(-0.015);
+		this.nextStateHolder.add(0.75);	
+		
+		this.actionHolder.add(50);
+		this.stateHolder.add(0.24);
+		this.rewardHolder.add(-0.015);
+		this.nextStateHolder.add(0.75);	
+		
+		this.actionHolder.add(50);
+		this.stateHolder.add(0.24);
+		this.rewardHolder.add(-0.015);
+		this.nextStateHolder.add(0.75);	
+		
+		
+		this.actionHolder.add(50);
+		this.stateHolder.add(0.24);
+		this.rewardHolder.add(-0.015);
+		this.nextStateHolder.add(0.75);	
 	}
 	
-	public void addExpierience(int action, int state, double reward, int nextState)
+	public void addExpierience(int action, double normal_currentstate, double reward, double normal_nextState)
 	
 	{
 		this.actionHolder.add(action);
-		this.stateHolder.add(state);
+		this.stateHolder.add(normal_currentstate);
 		this.rewardHolder.add(reward);
-		this.nextStateHolder.add(nextState);
+		this.nextStateHolder.add(normal_nextState);		
+		
 	}
+	
+
 	
 	public int[] getActionExpierience(ArrayList<Integer> batchIndex)
 	
 	{
 		int[] actionGrabber = new int[batchIndex.size()]; 
 		for (int i = 0; i < batchIndex.size(); i ++)
-		{
-			actionGrabber[i] = this.actionHolder.get(i); 
+		{	
+			int j = batchIndex.get(i);
+			actionGrabber[i] = this.actionHolder.get(j); 
 		}
 		
 		return actionGrabber;
@@ -48,7 +76,8 @@ public class ExpierienceReplay {
 		double[] rewardGrabber = new double[batchIndex.size()]; 
 		for (int i = 0; i < batchIndex.size(); i ++)
 		{
-			rewardGrabber[i] = this.rewardHolder.get(i); 
+			int j = batchIndex.get(i);
+			rewardGrabber[i] = this.rewardHolder.get(j); 
 		}
 		
 		return rewardGrabber;
@@ -59,9 +88,11 @@ public class ExpierienceReplay {
 	
 	{
 		double[] stateGrabber = new double[batchIndex.size()]; 
+		
 		for (int i = 0; i < batchIndex.size(); i ++)
 		{
-			stateGrabber[i] = this.stateHolder.get(i); 
+			int j = batchIndex.get(i);
+			stateGrabber[i] = this.stateHolder.get(j); 
 		}
 		
 		return stateGrabber;
@@ -74,7 +105,8 @@ public class ExpierienceReplay {
 		double[] stateGrabber = new double[batchIndex.size()]; 
 		for (int i = 0; i < batchIndex.size(); i ++)
 		{
-			stateGrabber[i] = this.nextStateHolder.get(i); 
+			int j = batchIndex.get(i);
+			stateGrabber[i] = this.nextStateHolder.get(j); 
 		}
 		
 		return stateGrabber;
