@@ -3,6 +3,7 @@ package RL_DEED;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Random;
 import java.util.stream.*;
 import java.lang.Math;
 
@@ -27,14 +28,17 @@ public class Environment {
 	public Double initialPNM[] = {135.0, 73.0, 60.0, 73.0, 57.0, 20.0, 47.0, 20.0, 10.0};
 	public ArrayList<ArrayList<Double> > UHolder = new ArrayList<ArrayList<Double> >();
 	
-	
+	public int counter = 0;
 	public double PDM_hold[] = {1036, 1110, 1258, 1406, 1480, 1628, 1702, 1776, 1924, 2022, 2106, 2150, 2072, 1924, 1776,
             						   1554, 1480, 1628, 1776, 1972, 1924, 1628, 1332, 1184};
 	
 	public ArrayList<DeepRL_Agent> _agents_;
+	public ArrayList<Double> currentState_Array = new ArrayList<Double>();
+	public ArrayList<Double> nextState_Array = new ArrayList<Double>();
+	public ArrayList<Double> reward_Array = new ArrayList<Double>();
 	public int numActions = 101;
-	public double epsilon = 0.05;
-	public double gamma = 0.75;
+	public double epsilon = 1;
+	public double gamma = 1;
 	public double alpha = 0.1;	
 	public ArrayList<Double> P1M_array = new ArrayList<Double>();
 	public ArrayList<Double> P1M_T_array = new ArrayList<Double>();
@@ -44,6 +48,10 @@ public class Environment {
 	public double P1M_minus;
 	public int percentageIncrement = 1; // 1% gen power increment
 	public int numPercentSteps = 100/percentageIncrement + 1;
+	public double learningRate = 0.00025; 
+	public int miniBatchSize = 64;
+	public double normal_currentstate = 0;
+	public double normal_nextState = 0;
 	
 	
 	public DeepRL_Agent createAgent(int id) 
@@ -676,6 +684,38 @@ public class Environment {
 		}
 	}
 	
+	public int getminAllowedAction(DeepRL_Agent agent_, int minAllowedPosition, int id)
+	{
+		if (minAllowedPosition < agent_.UHolder.get(id).get(0))
+		{
+			minAllowedPosition = (int) (agent_.UHolder.get(id).get(0) - 0);
+		}		
+		
+		double minPosLessOffset = minAllowedPosition - agent_.genOffsets[id+1];
+		
+		double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
+		Double minAllowedAction_D = minPosLessOffset * actionFraction;
+		int minAllowedAction = minAllowedAction_D.intValue();
+		
+		return minAllowedAction;
+	}
+	
+	public int getmaxAllowedAction(DeepRL_Agent agent_, int maxAllowedPosition, int id)
+	{	
+		
+		if (maxAllowedPosition > agent_.UHolder.get(id).get(1))
+		{
+			maxAllowedPosition = (int) (agent_.UHolder.get(id).get(1) - 0);
+		}
+		
+		double maxPosLessOffset = maxAllowedPosition - agent_.genOffsets[id+1];
+		double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
+		Double maxAllowedAction_D = maxPosLessOffset * actionFraction;
+		int maxAllowedAction = maxAllowedAction_D.intValue();
+		
+		return maxAllowedAction;
+	}
+	
 	public double getSlackPowerHour(ArrayList<Double> positions, int hour)
 	{
 		Double P1M = 0.0;
@@ -728,6 +768,48 @@ public class Environment {
         }
         return maxValueIndex;        
 	}
+	
+	public static double getMaxValue(double[][] numbers) {
+        double maxValue = numbers[0][0];
+        int maxValueIndex = 0;
+        for (int j = 0; j < numbers.length; j++) {
+            for (int i = 0; i < numbers[j].length; i++) {
+                if (numbers[j][i] > maxValue) {
+                    maxValue = numbers[j][i];
+                    
+                }
+            }
+        }
+        return maxValue;        
+	}
+	
+    public static double calculateSD(ArrayList<Double> numArray)
+    {
+        double sum = 0.0, standardDeviation = 0.0;
+        int length = numArray.size();
+        for(double num : numArray) {
+            sum += num;
+        }
+        double mean = sum/length;
+        
+        for(double num: numArray) {
+            standardDeviation += Math.pow(num - mean, 2);
+        }
+        return Math.sqrt(standardDeviation/length);
+    }
+    
+    public static double calculateMean(ArrayList<Double> numArray)
+    {
+        double sum = 0.0;
+        int length = numArray.size();
+        for(double num : numArray) {
+            sum += num;
+        }
+        double mean = sum/length;
+        
+        
+        return mean;
+    }
 
 
 		
@@ -751,6 +833,9 @@ public class Environment {
 		ArrayList<Double> emissionsTotal = new ArrayList<Double>();
 		ArrayList<Double> violationsTotal = new ArrayList<Double>();
 		
+		this.currentState_Array.add(0.0001); this.currentState_Array.add(0.0001);
+		this.nextState_Array.add(0.0001); this.nextState_Array.add(0.0001);
+		this.reward_Array.add(0.001); this.reward_Array.add(0.0001);
 		
 		double cost = 0;
 		double emissions = 0;
@@ -770,10 +855,12 @@ public class Environment {
 		ArrayList<Double> PNM = new ArrayList<Double>();
 		int currentState = -1;
 		
+		
 		hour = 0;
 			
 		while (hour < 24)
 		{
+			//System.out.println("Begin Timestep ");
 			b = b + 1;
 			PNM.clear();
 			
@@ -783,6 +870,13 @@ public class Environment {
 			
 			for (int i = 0; i < _agents_.size(); i++)
 			{
+				
+				
+				int minAllowedAction = 0;
+				int maxAllowedAction = 0;
+				int minAllowedPosition = 0;
+				int maxAllowedPosition = 0;
+				
 				DeepRL_Agent agent_ = _agents_.get(i);
 				
 				
@@ -799,55 +893,69 @@ public class Environment {
 				}
 				
 				currentState = agent_.getStateMARL(hour, agent_, previousAgentPower);
+				this.currentState_Array.add( (double) currentState);
+				
+				if (agent_.getAgentID() == 2 & hour == 0)
+				{
+				//System.out.println("State Array Size :: " + this.currentState_Array);
+				}
+				this.normal_currentstate = currentState - calculateMean(currentState_Array);
+				this.normal_currentstate = this.normal_currentstate/calculateSD(currentState_Array);
+				
 				
 				double[][] stateMatrix = new double[1][1];
-				stateMatrix[0][0] = currentState;
+				stateMatrix[0][0] = normal_currentstate;
 				
 				// FeedForward
-				agent_.targetNetwork.setState(currentState);
-				double[][] weights1 = agent_.targetNetwork.getWeights(1);
-				double[][] hidden1 = agent_.targetNetwork.feedForwardStep(1, stateMatrix);
-				double[][] z_hidden1 = agent_.targetNetwork.sigmoid(hidden1);
+				//agent_.policyNetwork.setState(currentState);
+				double[][] weights1 = agent_.policyNetwork.getWeights(1);
+				double[][] hidden1 = agent_.policyNetwork.feedForwardStep(1, stateMatrix);
+				double[][] z_hidden1 = agent_.policyNetwork.RELU(hidden1);
 				
-				double[][] weights2 = agent_.targetNetwork.getWeights(2);
-				double[][] hidden2 = agent_.targetNetwork.feedForwardStep(2, z_hidden1);
-				double[][] z_hidden2 = agent_.targetNetwork.sigmoid(hidden2);
+				double[][] weights2 = agent_.policyNetwork.getWeights(2);
+				double[][] hidden2 = agent_.policyNetwork.feedForwardStep(2, z_hidden1);
+				double[][] z_hidden2 = agent_.policyNetwork.RELU(hidden2);
 				
-				double[][] weights3 = agent_.targetNetwork.getWeights(3);
-				double[][] output = agent_.targetNetwork.feedForwardStep(3, z_hidden2);
-				double[][] z_output = agent_.targetNetwork.sigmoid(output);
+				double[][] weights3 = agent_.policyNetwork.getWeights(3);
+				double[][] output = agent_.policyNetwork.feedForwardStep(3, z_hidden2);
+				double[][] z_output = agent_.policyNetwork.RELU(output);
 				//agent_.expierienceReplay.addExpierience(action, state, reward, nextState);
+				agent_.setTargetQ(output);
+				double randomValue = Math.random();
 				
+				if (randomValue < this.epsilon)
+					{
+					
+						action = agent_.selectRandomAction();
+					
+					}
 				
-				int minAllowedAction = 0;
-				int maxAllowedAction = 0;
-				int minAllowedPosition = 0;
-				int maxAllowedPosition = 0;
+				else
+					{
+					
+						action = getMaxValueIndex(output);
+					
+					
+					}
+				
+				if (agent_.getAgentID() == 2)
+				{
+				//System.out.println("Taken Action :: " + action);
+				
+				}
+				
+				//System.out.println(action);
+				double[][] predictedQ = output;
+				//System.out.println(Arrays.deepToString(predictedQ));
 				
 				minAllowedPosition = (int) (previousAgentPower - agent_.UHolder.get(id).get(13));
 				maxAllowedPosition = (int) (previousAgentPower + agent_.UHolder.get(id).get(12));
 				
-				if (minAllowedPosition < agent_.UHolder.get(id).get(0))
-				{
-					minAllowedPosition = (int) (agent_.UHolder.get(id).get(0) - 0);
-				}
+				minAllowedAction = getminAllowedAction(agent_, minAllowedPosition, id);
+				maxAllowedAction = getmaxAllowedAction(agent_, maxAllowedPosition, id);				
 				
-				if (maxAllowedPosition > agent_.UHolder.get(id).get(1))
-				{
-					maxAllowedPosition = (int) (agent_.UHolder.get(id).get(1) - 0);
-				}
+				//action = agent_.selectActionDEED(currentState, minAllowedAction, maxAllowedAction + 1);			
 				
-				double minPosLessOffset = minAllowedPosition - agent_.genOffsets[id+1];
-				double maxPosLessOffset = maxAllowedPosition - agent_.genOffsets[id+1];
-				double actionFraction = (double) numPercentSteps / (double) (percentageIncrement * (agent_.genRanges[id+1] - 1));
-				Double minAllowedAction_D = minPosLessOffset * actionFraction;
-				Double maxAllowedAction_D = maxPosLessOffset * actionFraction;
-				minAllowedAction = minAllowedAction_D.intValue();
-				maxAllowedAction = maxAllowedAction_D.intValue();			
-				
-				//action = agent_.selectActionDEED(currentState, minAllowedAction, maxAllowedAction + 1);
-				
-				action = getMaxValueIndex(z_output);
 							
 				Pn = action * percentageIncrement * (agent_.genRanges[id + 1] - 1) / (double) numPercentSteps + agent_.genOffsets[id + 1];
 				
@@ -911,22 +1019,258 @@ public class Environment {
 					previousAgentPower = _agent.getPreviousAgentPower();
 				}
 				
+				
+				
+				double normal_reward = reward - calculateMean(reward_Array);
+				normal_reward = normal_reward/calculateSD(reward_Array);
+				this.reward_Array.add( (double) reward);
+				reward = normal_reward;
+				//System.out.println(reward);
+				
 				previousState = _agent.getStateMARL(hour, _agent, previousAgentPower);				
-				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower());				
+				currentState = _agent.getStateMARL(hour + 1, _agent, _agent.getAgentPower());	
+				this.nextState_Array.add( (double) currentState);
+				this.normal_nextState = currentState - calculateMean(nextState_Array);
+				this.normal_nextState = this.normal_nextState/calculateSD(nextState_Array);
+				
+				previousState = previousState/10000000;
+				
+				currentState = currentState/10000000;
+
+				double[][] nextStateMatrix = new double[1][1];
+				nextStateMatrix[0][0] = currentState;				
 				
 				_agent.setPreviousAgentPower(_agent.getAgentPower());
-				//System.out.println(reward);
-				_agent.updateQValuesDEED(previousState, currentState, action, (float) reward);				
+				_agent.expierienceReplay.addExpierience(action, this.normal_currentstate, normal_reward, this.normal_nextState);
+		
 			}
 			
-			
-				hour = hour + 1;				
+				
+				hour = hour + 1;	
+				
+				
 			
 				emissionsTotal.add(emissions);  rewardTotal.add(reward); violationsTotal.add(violations);
 				costTotal.add(cost);				
 						
 					
-			}	
+			}
+		
+		for (int z = 0; z < _agents_.size(); z ++)
+		{
+			DeepRL_Agent _agent = _agents_.get(z);
+			int id = _agent.getAgentID() - 2;
+		
+		if (j > 2)
+		{
+			
+			int[] randomSample = new int[this.miniBatchSize];
+			
+			for (int i = 0; i < this.miniBatchSize; i ++ )
+			{
+				
+				Random r = new Random();
+				int randomNumber =  r.nextInt(((_agent.expierienceReplay.actionHolder.size() - 1) - 0) + 1) + 0;
+				randomSample[i] = randomNumber;
+				
+			}		
+			
+			for (int i = 0; i < this.miniBatchSize; i ++ )
+			{
+				int index = randomSample[i];
+				double erState = _agent.expierienceReplay.stateHolder.get(index);						
+				int erAction = _agent.expierienceReplay.actionHolder.get(index);
+				double erReward = _agent.expierienceReplay.rewardHolder.get(index);
+				double erNextState = _agent.expierienceReplay.nextStateHolder.get(index);		
+				
+				double[][] nextStateMatrix = new double[1][1];
+				nextStateMatrix[0][0] = erNextState;	
+
+				
+				// Expierience Replay FeedFordward 1
+				
+				double[][] StateMTRX = new double[1][1];
+				StateMTRX[0][0] = erState;
+				
+				double[][] NextStateMTRX = new double[1][1];
+				NextStateMTRX[0][0] = erNextState;
+				
+				double[][] pn_weights1 = _agent.policyNetwork.getWeights(1);
+				//System.out.println(Arrays.deepToString(pn_weights1));
+				double[][] pn_hidden1 = _agent.policyNetwork.feedForwardStep(1, StateMTRX);	
+				//System.out.println(Arrays.deepToString(pn_hidden1));
+				double[][] pn_z_hidden1 = _agent.policyNetwork.RELU(pn_hidden1);
+				//System.out.println(Arrays.deepToString(pn_z_hidden1));
+				
+				double[][] pn_weights2 = _agent.policyNetwork.getWeights(2);
+				double[][] pn_hidden2 = _agent.policyNetwork.feedForwardStep(2, pn_z_hidden1);
+				double[][] pn_z_hidden2 = _agent.policyNetwork.RELU(pn_hidden2);
+				
+				double[][] pn_weights3 = _agent.policyNetwork.getWeights(3);
+				double[][] pn_output = _agent.policyNetwork.feedForwardStep(3, pn_z_hidden2);						
+				double[][] pn_z_output = _agent.policyNetwork.sigmoid(pn_output);
+				
+				// Expierience Replay FeedFordward 1			
+				
+				double[][] tn_weights1 = _agent.targetNetwork.getWeights(1);
+				double[][] tn_hidden1 = _agent.targetNetwork.feedForwardStep(1, NextStateMTRX);						
+				double[][] tn_z_hidden1 = _agent.targetNetwork.RELU(tn_hidden1);
+				
+				double[][] tn_weights2 = _agent.targetNetwork.getWeights(2);
+				double[][] tn_hidden2 = _agent.targetNetwork.feedForwardStep(2, tn_z_hidden1);
+				double[][] tn_z_hidden2 = _agent.targetNetwork.RELU(tn_hidden2);
+				
+				double[][] tn_weights3 = _agent.targetNetwork.getWeights(3);
+				double[][] tn_output = _agent.targetNetwork.feedForwardStep(3, tn_z_hidden2);
+				double[][] tn_z_output = _agent.targetNetwork.sigmoid(tn_output);
+				
+				double maxQTarget = getMaxValue(tn_output);	
+				int maxQTargetIndex = getMaxValueIndex(tn_output);
+				
+				//System.out.println(maxQTargetIndex);
+				//System.out.println(Arrays.deepToString(tn_output));
+				//System.out.println(Arrays.deepToString(pn_output));
+				//System.out.println("Reward :: " + erReward);
+				//System.out.println("Max :: " + maxQTarget);
+				
+				double target = erReward + (this.gamma * maxQTarget);
+				
+				
+				double[][] target_f = tn_output.clone();
+				for (int x = 0; x < 100; x ++)
+				{
+					target_f[0][x] = 0.0;
+				}
+				
+				double value = target - pn_output[0][erAction];
+				double check = pn_output[0][erAction];
+				target_f[0][erAction] = value;
+				//target_f[0][erAction] = target;
+				//System.out.println("Reward ::" + erReward);
+				//System.out.println("Action ::" + erAction);
+				//System.out.println("Check ::" + check);
+				//System.out.println("Value ::" + value);
+				//System.out.println("Value ::" + value);
+				
+				double proofer_output = pn_output[0][erAction];
+				// BackPropagation
+				
+				double[][] error_out = _agent.policyNetwork.subtract(tn_output, target_f);
+				//System.out.println("Error out :: " + Arrays.deepToString(target_f));
+				
+				double[][] prediction_out = _agent.policyNetwork.RELU_derivative(pn_output);
+				///System.out.println("Prediction Out :: " + Arrays.deepToString(prediction_out));
+				double[][] delta_out = _agent.policyNetwork.multiply(target_f, prediction_out);
+				//System.out.println("Delta Out :: " + Arrays.deepToString(prediction_out));
+				double[][] cost_out = _agent.policyNetwork.dot(_agent.policyNetwork.transpose(pn_z_hidden2 ), delta_out);
+			//	System.out.println("Cost Out :: " + Arrays.deepToString(cost_out));
+				
+				double[][] error_hidden2 = _agent.policyNetwork.dot(delta_out, _agent.policyNetwork.transpose(pn_weights3));
+				double[][] prediction_hidden2 = _agent.policyNetwork.RELU_derivative(pn_hidden2);
+				double[][] delta_hidden2 = _agent.policyNetwork.multiply(error_hidden2, prediction_hidden2);
+				double[][] cost_hidden2 = _agent.policyNetwork.dot(_agent.policyNetwork.transpose(pn_z_hidden1), delta_hidden2);
+				
+				double[][] error_hidden1 = _agent.policyNetwork.dot(delta_hidden2, _agent.policyNetwork.transpose(pn_weights2));
+				double[][] prediction_hidden1 = _agent.policyNetwork.RELU_derivative(pn_hidden1);
+				double[][] delta_hidden1 = _agent.policyNetwork.multiply(error_hidden1, prediction_hidden1);
+				double[][] cost_hidden1 = _agent.policyNetwork.dot(StateMTRX, delta_hidden1);
+				//System.out.println("Cost :: " + Arrays.deepToString(cost_hidden1));
+				
+				
+				if (_agent.getAgentID() == 2)
+				{
+					//
+					//System.out.println("prediction_out: " + Arrays.deepToString(prediction_out));
+					//System.out.println("delta_out: " + Arrays.deepToString(delta_out));
+					//System.out.println("cost_out: " + Arrays.deepToString(cost_out));
+				}
+				
+				double[][] learningRateMTRX = new double[1][1];
+				learningRateMTRX[0][0] = this.learningRate;
+									
+				double [][] update_w3 = _agent.policyNetwork.multiply(this.learningRate, cost_out);
+				double [][] w3 = _agent.policyNetwork.subtract(pn_weights3, update_w3);
+				_agent.policyNetwork.setWeights(w3, 3);
+				
+				double [][] update_w2 = _agent.policyNetwork.multiply(this.learningRate, cost_hidden2);
+				double [][] w2 = _agent.policyNetwork.subtract(pn_weights2, update_w2);
+				_agent.policyNetwork.setWeights(w2, 2);
+				
+				double [][] update_w1 = _agent.policyNetwork.multiply(this.learningRate, cost_hidden1);
+				double [][] w1 = _agent.policyNetwork.subtract(pn_weights1, update_w1);
+				_agent.policyNetwork.setWeights(w1, 1);
+				
+				//_agent.policyNetwork.updateWeights(3, this.learningRate, cost_out);
+				//_agent.policyNetwork.updateWeights(2, this.learningRate, cost_hidden2);
+				//_agent.policyNetwork.updateWeights(1, this.learningRate, cost_hidden1);
+				//double mean_error = ((1 - 100) * Math.pow(value, 2));
+				//System.out.println("Error ::" + mean_error);
+				
+				
+				pn_weights1 = _agent.policyNetwork.getWeights(1);
+				pn_weights2 = _agent.policyNetwork.getWeights(2);
+				pn_weights3 = _agent.policyNetwork.getWeights(3);
+				
+				if (_agent.getAgentID() == 3 )
+				{
+					//System.out.println("Check NN Test" + Arrays.deepToString(test));
+					//System.out.println("Check NN Update Test" + Arrays.deepToString(updatetest));
+					//System.out.println("Check NN Error Out " + Arrays.deepToString(error_out));
+					//System.out.println("Check NN Prediction Out " + Arrays.deepToString(prediction_out));
+					//System.out.println("Check NN Delta Out: " + Arrays.deepToString(delta_out));
+					//System.out.println("Check NN Cost Out: " + Arrays.deepToString(cost_out));
+					//System.out.println("Check NN Cost Hidden 2: " + Arrays.deepToString(cost_hidden2));
+					//System.out.println("Check NN Cost Hidden 1 : " + Arrays.deepToString(cost_hidden1));
+					System.out.println("Check Weights 1: " + Arrays.deepToString(pn_weights1));
+					//System.out.println("Check Weights 2: " + Arrays.deepToString(weights2));
+					//System.out.println("Check Weights 3: " + Arrays.deepToString(weights3));
+				}	
+				
+				//System.out.println();
+				//System.out.println("Check NN Test" + Arrays.deepToString(cost_out));
+				_agent.policyNetwork.updateBias(3, this.learningRate, cost_out);
+				_agent.policyNetwork.updateBias(2, this.learningRate, cost_hidden2);
+				_agent.policyNetwork.updateBias(1, this.learningRate, cost_hidden1);
+				
+				//System.out.println(Arrays.deepToString(weights3));
+				
+				if (this.counter == 100)
+				{
+					
+					update_w3 = _agent.targetNetwork.multiply(this.learningRate, cost_out);
+					
+					w3 = _agent.targetNetwork.subtract(pn_weights3, update_w3);
+					_agent.targetNetwork.setWeights(w3, 3);
+					
+					update_w2 = _agent.targetNetwork.multiply(this.learningRate, cost_hidden2);
+					w2 = _agent.targetNetwork.subtract(pn_weights2, update_w2);
+					_agent.targetNetwork.setWeights(w2, 2);
+					
+					update_w1 = _agent.targetNetwork.multiply(this.learningRate, cost_hidden1);
+					w1 = _agent.targetNetwork.subtract(pn_weights1, update_w1);
+					_agent.targetNetwork.setWeights(w1, 1);
+					
+					//_agent.targetNetwork.setWeights(_agent.policyNetwork.getWeights(3), 3);
+					//_agent.targetNetwork.setWeights(_agent.policyNetwork.getWeights(2), 2);
+					//_agent.targetNetwork.setWeights(_agent.policyNetwork.getWeights(1), 1);
+					
+					//_agent.targetNetwork.setBias(_agent.policyNetwork.getBias(3), 3);
+					//_agent.targetNetwork.setBias(_agent.policyNetwork.getBias(2), 2);
+					//_agent.targetNetwork.setBias(_agent.policyNetwork.getBias(1), 1);
+					
+					this.counter = 0;
+				}
+				
+			}
+			
+			
+			
+		}
+		}
+		
+		this.counter = this.counter + 1;
+		
+		//this.epsilon = this.epsilon * 0.9999999995;
 				
 		double totalCost = costTotal.stream().mapToDouble(ii -> ii).sum();
 		double totalEmissions = emissionsTotal.stream().mapToDouble(ik -> ik).sum();
