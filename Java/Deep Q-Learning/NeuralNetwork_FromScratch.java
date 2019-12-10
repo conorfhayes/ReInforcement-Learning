@@ -1,5 +1,6 @@
 package RL_DEED;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 
@@ -17,16 +18,21 @@ public class NeuralNetwork {
 	public double[][] hidden1_weights = new double[0][0];
 	public double[][] hidden2_weights = new double[0][0];
 	public double[][] output_weights = new double[0][0];
+	public String networkName = "";
 	
-	public NeuralNetwork(double learningRate, int inputSize, int hiddenSize1, int hiddenSize2, int outputSize)
+	public NeuralNetwork(double learningRate, int inputSize, int hiddenSize1, int hiddenSize2, int outputSize, String networkName)
 		
 		{
+		
 			this.learningRate = learningRate;
 			this.inputSize = inputSize;
 			this.hiddenSize1 = hiddenSize1;
 			this.hiddenSize2 = hiddenSize2;
 			this.outputSize = outputSize;
+			this.networkName = networkName;
 			initialiseWeightsAndBias();
+			
+			
 	        		
 		}
 	
@@ -45,6 +51,11 @@ public class NeuralNetwork {
 		this.hidden1_weights = RandomUniform(-1.0, 1.0, inputSize, hiddenSize1);
 		this.hidden2_weights = RandomUniform(-1.0, 1.0, hiddenSize1, hiddenSize2);
 		this.output_weights = RandomUniform(-1.0, 1.0, hiddenSize2, outputSize);
+		
+		if (this.networkName == "Policy Network")
+		{
+			System.out.println("Init Wieghts 1" + Arrays.deepToString(this.hidden1_weights));
+		}
 	}
 	
 	public double[][] RandomUniform (Double number1, Double number2, int size1, int size2)
@@ -59,11 +70,54 @@ public class NeuralNetwork {
 				Random r = new Random();
 				Double fillValue = r.nextDouble() * (number2 - number1) + number1;
 				arrayFill[x][i] = fillValue;
+				
+			
 			}
 			
 		}
 		
 		return arrayFill;
+	}
+	
+	public static double[][] multiply(double x, double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
+
+        double[][] y = new double[m][n];
+        for (int j = 0; j < m; j++) {
+            for (int i = 0; i < n; i++) {
+                y[j][i] = a[j][i] * x;
+            }
+        }
+        return y;
+    }
+	
+	public double[][] updateWeights(int layer, double learningRate, double[][] matrix)
+	
+	{
+		double[][] weights = getWeights(layer);
+		double[][] learningRateMatrix = new double[1][1];
+		learningRateMatrix[0][0] = learningRate;
+		
+		double[][] weights_ = multiply(learningRate, matrix);
+		double[][] weights__ = subtract(weights, weights_);
+		//System.out.println(Arrays.deepToString(weights));
+		//double[][] test = getWeights(layer) = weights;
+		setWeights(weights__, layer);
+		
+		return weights__;
+	}
+	
+	public void updateBias(int layer, double learningRate, double[][] matrix)
+	
+	{
+		double[][] bias = getBias(layer);
+		double[][] learningRateMatrix = new double[1][1];
+		learningRateMatrix[0][0] = learningRate;
+		
+		double[][] bias_ = multiply(learningRate, matrix);
+		bias = subtract(bias, bias_);
+		setBias(bias, layer);
 	}
 	
 	public double[][] getBias(int layer)
@@ -99,7 +153,13 @@ public class NeuralNetwork {
 		{
 			this.bias_2 = bias;
 			return;
-		}		
+		}
+		
+		else if (layer == 3)
+		{
+			this.bias_3 = bias;
+			return;
+		}
 		
 		System.out.println("Error :: Cannot Set Bias, Check Layer Input");
 		
@@ -143,6 +203,8 @@ public class NeuralNetwork {
 		else if (layer == 3)
 		{
 			this.output_weights = weights;
+			//System.out.println("Weight: " + Arrays.deepToString(weights));
+			//System.out.println("output_weights: " + Arrays.deepToString(this.output_weights));
 			return;
 		}
 		
@@ -183,6 +245,7 @@ public class NeuralNetwork {
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
                 c[i][j] = a[i][j] - b[i][j];
+
             }
         }
         return c;
@@ -206,6 +269,8 @@ public class NeuralNetwork {
         }
         return c;
     }
+	
+	
 	
 	public static double[][] multiply(double[][] x, double[][] a) {
         int m = a.length;
@@ -338,14 +403,53 @@ public class NeuralNetwork {
         int m = a.length;
         int n = a[0].length;
         double[][] z = new double[m][n];
+        double[][] z_ = new double[m][n];
+        
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                z_[i][j] = ( 1 - (1.0 / (1 + Math.exp(-a[i][j]))));
+            }
+        }
+        
+        double[][] out = multiply(z, z_);
+        
+        return out;
+    }
+	
+	public static double[][] RELU(double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] z = new double[m][n];
 
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
-                z[i][j] = (1.0 / (1 + Math.exp(-a[i][j])));
+                z[i][j] = Math.max(0.01, a[i][j]);
             }
         }
         return z;
     }
+	
+	public static double[][] RELU_derivative(double[][] a) {
+        int m = a.length;
+        int n = a[0].length;
+        double[][] z = new double[m][n];
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+            	if (a[i][j] <= 0.0)
+            	{
+            		z[i][j] = 0.01;
+            	}
+            	if (a[i][j] > 0.0)
+            	{
+            		z[i][j] = 1.0;
+            	}
+                
+            }
+        }
+        return z;
+    }
+	
 	
 	
 	
@@ -354,7 +458,8 @@ public class NeuralNetwork {
 	{
 		double[][] bias = getBias(layer);
 		double[][] weights = getWeights(layer);
-		//System.out.print(weights.get(0).size());
+		
+		
 		double[][] hidden_ = dot(nodes, weights);
 		double[][] hidden =  add(hidden_, bias);
 		//ArrayList<ArrayList<Double>> z_hidden = sigmoid(hidden_add);
@@ -362,68 +467,9 @@ public class NeuralNetwork {
 		return hidden;
 	}
 	
-	public double[][] backPropagationStep (String networkType, int layer, double[][] input1, 
-			double[][] input2, double[][] input3)
+
 	
-	{
-		double[][] bias = getBias(layer);
-		double[][] weights = getWeights(layer);
-		double[][] error = new double[0][0];
-		
-		if (layer == 3)
-		{
-			error = subtract(input1, input2);
-		}
-		
-		else
-		{
-			error = dot(input1, transpose(weights));
-		}
-		
-		double[][] prediction = sigmoid_derivative(input2);
-		double[][] delta = dot(error, prediction);
-		double[][] cost = dot(transpose(input3), prediction);
-		
-		double[][] learningRateMatrix = new double[0][0];
-		double[][] biasMatrix = new double[0][0];
-		
-		if (networkType == "Expierience Replay")
-		{
-		for (int i = 0; i < prediction.length; i ++)
-		{
-			for (int j = 0; j < prediction[i].length; j ++)
-			{
-				learningRateMatrix[i][j] = this.learningRate;
-			}
-		}
-		
-		setWeights(subtract(weights, dot(learningRateMatrix, prediction)), layer);
-		
-		int biasSum = 0;
-		
-		for (int i = 0; i < cost.length; i ++)
-		{
-			for (int j = 0; j < cost[i].length; j ++)
-			{
-				biasSum += cost[i][j];
-			}
-		}
-		
-		double biasValue = biasSum * this.learningRate;
-		for (int i = 0; i < bias.length; i ++)
-		{
-			for (int j = 0; j < bias[i].length; j ++)
-			{
-				biasMatrix[i][j] = biasValue;
-			}
-		}
-		
-		
-		setBias(subtract(bias, biasMatrix), layer);
-		}
-		
-		return delta;		
-	}
+
 	
 
 	
