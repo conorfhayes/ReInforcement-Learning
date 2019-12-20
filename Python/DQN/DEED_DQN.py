@@ -1,5 +1,4 @@
-# Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning.
-# A V1 of this implementation for my MSC thesis in Data Analytics
+# Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning and Deep Q-Learning (DQN).
 # Code to be updated
 
 
@@ -99,14 +98,14 @@ class Agent:
         self.create_model(self.learningRate)
         self.power = 0
         self.deltaDemands = []
-        self.minDeltaDemand = 0
-        self.maxDeltaDemand = 0
+        self.minDeltaDemand = sys.float_info.max
+        self.maxDeltaDemand = sys.float_info.min
         self.demandRange = 0
         self.demandOffset = 0
         self.genRanges = []
         self.genOffsets = []
         self.calculateNumStatesActionsMARL()
-        self.qTable = self.initialiseQvalue((self.demandRange*100) + 1000, 101)
+        self.qTable = self.initialiseQvalue((self.demandRange*101) + 1000, 101)
         self.numStates = self.demandRange*100
 
         return self
@@ -169,7 +168,7 @@ class Agent:
         self.deltaDemands.append(0)
 
         for i in range(1, len(self.PDM_hold)):
-            self.deltaDemands.append(self.PDM_hold[i] -self. PDM_hold[i - 1])
+            self.deltaDemands.append(self.PDM_hold[i] - self.PDM_hold[i - 1])
 
         for i in range(1, len(self.deltaDemands)):
             if self.deltaDemands[i] < self.minDeltaDemand:
@@ -316,7 +315,7 @@ class Agent:
         if hour > 1 and hour <= 24:
             deltaDemand = self.deltaDemands[hour - 1] + self.demandOffset
             power = power_ - self.genOffsets[agent.getAgentID() - 1] * 101 / (1 * (self.genRanges[agent.getAgentID() - 1]- 1))
-            state = self.getStateFromXY([deltaDemand, power], [deltaDemand, 101])
+            state = self.getStateFromXY([deltaDemand, power], [self.demandRange, 102])
 
         return state
 
@@ -621,22 +620,22 @@ class Environment():
         currentPSlack = self.getP1M(Pnm, hour)
 
         if hour > 1:
-            previousPSlack = self.getP1M(previousPNM, hour )
+            previousPSlack = self.getP1M(previousPNM, hour - 1)
         else:
             previousPSlack = agent.UHolder[0][0] + (agent.UHolder[0][1] - agent.UHolder[0][0]) / float(2)
 
         if hour > 1:
-            for i in range(len(Pnm)):
+            for i in range(0, len(Pnm)):
                 diff = abs(Pnm[i] - previousPNM[i])
-                if diff > agent.UHolder[i][12]:
-                    violation = violation + diff - agent.UHolder[i][12]
+                if diff > agent.UHolder[i + 1][12]:
+                    violation = violation + diff - agent.UHolder[i + 1][12]
 
 
         if currentPSlack > agent.UHolder[0][1]:
             violation = violation + currentPSlack - agent.UHolder[0][1]
 
-        elif currentPSlack < agent.UHolder[0][1]:
-            violation = violation + currentPSlack - agent.UHolder[0][0]
+        elif currentPSlack < agent.UHolder[0][0]:
+            violation = violation + abs(currentPSlack - agent.UHolder[0][0])
 
         if hour > 1:
             diff = abs(currentPSlack - previousPSlack)
@@ -732,10 +731,11 @@ class Environment():
 
         previousAgentPower = previousPNM[agent.getAgentID() - 2]
 
-        for i in Pnm:
-            _PNM_.append(i)
+        _PNM_ = Pnm[:]
 
         _PNM_[agent.getAgentID() - 2] = previousAgentPower
+
+
 
         for agent in _agents_:
             a_id = agent.getAgentID()
@@ -811,8 +811,8 @@ class Environment():
                 if check < self.epsilon:
                     action = int(agent.selectrandomAction(minAllowedAction, maxAllowedAction - 1))
                 else:
-                    action = self.getMaxValueIndex(agent.model.predict(np.array(currentStateArray)), minAllowedAction, maxAllowedAction)
-                    #action = agent.selectAction(currentState, agent, minAllowedAction, maxAllowedAction)
+                    #action = self.getMaxValueIndex(agent.model.predict(np.array(currentStateArray)), minAllowedAction, maxAllowedAction)
+                    action = agent.selectAction(currentState, agent, minAllowedAction, maxAllowedAction)
 
                 Pn = self.getPNM(action, agent)
                 Pnm.append(Pn)
@@ -841,15 +841,15 @@ class Environment():
                                                                              CurrentPDM, P1M,
                                                                              hour, agent, scalarization)
 
-                #if agent.getAgentID() == 2 and hour == 2:
+                if agent.getAgentID() == 2 and hour == 2:
                 #    print("Hour 2 ::")
                 #    print("Output :: ", agent.model.predict(np.array(currentStateArray)))
                 #    print("Previous Agent Power :: ", agent.getPreviousAgentPower())
                 #    print("Agent Power :: ", agent.getAgentPower())
-                #    print("Reward :: ", reward)
+                    #print("Reward :: ", reward)
                 #    print("Current State :: ", previousState)
                 #    print("Next State :: ", nextState)
-                #    print("Action :: ", action)
+                    print("Action :: ", action)
 
                 val = agent.getAgentID() - 1
                 if hour == 1:
@@ -860,10 +860,10 @@ class Environment():
                 previousState = agent.getStateMARL(hour, agent, previousAgentPower)
                 nextState = agent.getStateMARL(hour + 1, agent, agent.getAgentPower())
 
-                #agent.updateQTable(previousState, action, nextState, reward, agent)
+                agent.updateQTable(previousState, action, nextState, reward, agent)
 
                 agent.setPreviousAgentPower(agent.getAgentPower())
-                agent.replay_memory.append([previousState/100000000, action, reward/1000000000000, nextState/100000000, done])
+                #agent.replay_memory.append([previousState/100000000, action, reward/1000000000000, nextState/100000000, done])
 
                 i = i + 1
 
@@ -878,13 +878,13 @@ class Environment():
         for agent in _agents_:
             agent.counter += 1
 
-            if agent.counter == 5:
-                #print("*** Updating Weights ***")
-                agent.target_model.set_weights(agent.model.get_weights())
-                agent.counter = 0
+            #if agent.counter == 5:
+            #    #print("*** Updating Weights ***")
+            #    agent.target_model.set_weights(agent.model.get_weights())
+            #    agent.counter = 0
 
-            if len(agent.replay_memory) > (self.minBatchSize):
-                agent.train()
+            #if len(agent.replay_memory) > (self.minBatchSize):
+            #    agent.train()
 
 
 
