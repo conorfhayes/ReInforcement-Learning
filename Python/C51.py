@@ -61,17 +61,17 @@ class Learner(object):
         #initialize Atoms
 
         self.num_atoms = 51
-        self.v_max = 1
+        self.v_max = 20
         self.v_min = -1
-        self.epsilon = 0.99
-        self.delta_z = (self.v_max -self.v_min) / float(self.num_atoms - 1)
+        self.epsilon = 0.999
+        self.delta_z = (self.v_max - self.v_min) / float(self.num_atoms - 1)
         self.z = [self.v_min + i * self.delta_z for i in range(self.num_atoms)]
 
         self.model = None
         self.target_model = None
 
         self.memory = deque()
-        self.max_memory = 5000
+        self.max_memory = 200
         self.debug_file = open('debug' ,'w')
 
         # Native actions
@@ -110,8 +110,8 @@ class Learner(object):
             self._actual_state_vars = self._state_vars + self._num_rewards + 1  # Both addition
 
         #self.make_network(args.hidden, args.lr)
-        self.model = self.make_network([1], 51, 2, args.lr)
-        self.target_model = self.make_network([1], 51, 2, args.lr)
+        self.model = self.make_network([3], 51, 2, args.lr)
+        self.target_model = self.make_network([3], 51, 2, args.lr)
 
         print('Number of primitive actions:', self._num_actions)
         print('Number of state variables', self._actual_state_vars)
@@ -163,8 +163,8 @@ class Learner(object):
 
         #self._model.total_loss = -grad
         print("Input Shape : " , input_shape , file = self.debug_file)
-        #state_input = Input(shape = (1 , ))
-        state_input = Input(batch_shape=(1, 1))
+        state_input = Input(shape = (3 , ))
+        #state_input = Input(batch_shape=(3, 3))
         layer1 = Dense(10, activation = 'relu')(state_input)
         layer2 = Dense(10, activation = 'relu')(layer1)
         #flatten = Flatten()(layer2)
@@ -317,23 +317,39 @@ class Learner(object):
         action_size = 2
         num_atoms = 51
         gamma = 0.99
+        replay_samples = []
+
+        #for i in range(num_samples):
+        #    replay_samples[i] = self.memory[i]
+
         replay_samples = random.sample(self.memory, num_samples)
 
-        state_inputs = np.zeros(((num_samples,)))
-        next_states = np.zeros(((num_samples,))) 
+        state_inputs = np.zeros(shape = (num_samples, 3))
+        next_states = np.zeros(shape = (num_samples, 3))
         m_prob = [np.zeros((num_samples, self.num_atoms)) for i in range(action_size)]
-        action, reward, done = [], [], []
+        action, reward, done = np.zeros(shape = (num_samples, 1)), np.zeros(shape = (num_samples, 2)), np.zeros(shape = (num_samples, 1))
+
+        #for i in range(num_samples):
+
+        print("** State **",replay_samples[0][0] , file = self.debug_file)
+        print("** Action **",replay_samples[0][1] , file = self.debug_file)
+        print("** Action **",replay_samples[0], file = self.debug_file)
+        print("** Reward **",replay_samples[0][2] , file = self.debug_file)
+        print("** Next State **",replay_samples[0][3] , file = self.debug_file)
+        print("** Done **",replay_samples[0][4] , file = self.debug_file)
 
         for i in range(num_samples):
+            
+            print("** Memory **",replay_samples[i] , file = self.debug_file)
             state_inputs[i] = replay_samples[i][0]
-            action.append(replay_samples[i][1])
-            reward.append(replay_samples[i][2])
-            #reward.append(replay_samples[i][2])
+            action[i] = replay_samples[i][1]
+            reward[i] = replay_samples[i][2]
             next_states[i] = replay_samples[i][3]
-            done.append(replay_samples[i][4])
-
-        z = self.model.predict(next_states)
-        z_ = self.target_model.predict(next_states)
+            done[i] = replay_samples[i][4]
+        
+            
+        z = self.model.predict(np.array(next_states))
+        z_ = self.target_model.predict(np.array(next_states))
 
         cumulative_reward = 0
         
@@ -347,17 +363,18 @@ class Learner(object):
         # Project Next State Value Distribution (of optimal action) to Current State
         for i in range(num_samples):
             cumulative_reward += reward[i]
+
             if done[i]: # Terminal State
                 # Distribution collapses to a single point
 
-                Tz = min(self.v_max, max(self.v_min, self.scalarize_reward(cumulative_reward)))
+                Tz = min(self.v_max, max(self.v_min, self.scalarize_reward(reward[i])))
                 bj = (Tz - self.v_min) / self.delta_z 
                 m_l, m_u = math.floor(bj), math.ceil(bj)
-                m_prob[action[i]][i][int(m_l)] += (m_u - bj)
-                m_prob[action[i]][i][int(m_u)] += (bj - m_l)
+                m_prob[int(action[i])][i][int(m_l)] += (m_u - bj)
+                m_prob[int(action[i])][i][int(m_u)] += (bj - m_l)
             else:
                 for j in range(self.num_atoms):
-                    x = self.scalarize_reward(cumulative_reward) + gamma * self.z[j]
+                    x = self.scalarize_reward(reward[i]) + gamma * self.z[j]
                     #print("X ::" , x, file = self.debug_file)
                     y = max(self.v_min, x)
                     #print("Y ::" , y,  file = self.debug_file)
@@ -365,12 +382,13 @@ class Learner(object):
                     #print("TZ ::" , Tz,  file = self.debug_file)
                     bj = (Tz - self.v_min) / self.delta_z 
                     m_l, m_u = math.floor(bj), math.ceil(bj)
-                    m_prob[action[i]][i][int(m_l)] += z_[optimal_action_idxs[i]][i][j] * (m_u - bj)
-                    m_prob[action[i]][i][int(m_u)] += z_[optimal_action_idxs[i]][i][j] * (bj - m_l)
+                    holder = np.array(action)
+                    m_prob[int(action[i])][i][int(m_l)] += z_[optimal_action_idxs[i]][i][j] * (m_u - bj)
+                    m_prob[int(action[i])][i][int(m_u)] += z_[optimal_action_idxs[i]][i][j] * (bj - m_l)
 
-        loss = self.model.fit(state_inputs, m_prob, batch_size = num_samples, nb_epoch=1, verbose=0)
-        #self.memory.clear()
-        return loss.history['loss']
+            loss = self.model.fit(state_inputs, m_prob, batch_size = num_samples, nb_epoch=1, verbose=0)
+            #self.memory.clear()
+        return 
 
 
     def get_optimal_action(self, state):
@@ -404,9 +422,11 @@ class Learner(object):
         while not done:
             timestep += 1
 
-            # Select an action or option based on the current state
+            # Select an action or option based on the current state            
             old_env_state = env_state
-            #state = self.encode_state(env_state, timestep, cumulative_rewards)
+
+            state = self.encode_state(env_state, timestep, cumulative_rewards)
+            print("State :: " , state,  file = self.debug_file)
             #print(state)
             check = random.uniform(0, 1)
             #probas = self.predict_probas(state)
@@ -417,11 +437,11 @@ class Learner(object):
                 # select random action
                 action = round(randint(0, 1))
             else:
-                action = self.get_optimal_action(env_state)
+                action = self.get_optimal_action(state)
 
             # Store experience, without the reward, that is not yet known
             e = Experience(
-                env_state,
+                state,
                 action
             )
             self._experiences.append(e)
@@ -447,10 +467,11 @@ class Learner(object):
             # Update the experience with its reward
             cumulative_rewards += rewards
             e.rewards = rewards
+            next_state = self.encode_state(env_state, timestep, cumulative_rewards)
 
-            #print("Reward :: " , rewards,  file = self.debug_file)
+            #print("Next State :: " , next_state,  file = self.debug_file)
             #print("Before" ,  file = self.debug_file)
-            self.replay_memory(env_state, action, rewards, env_state, done)
+            self.replay_memory(state, action, cumulative_rewards, next_state, done)
             #print("After" ,  file = self.debug_file)
 
         # Mark episode boundaries
@@ -506,20 +527,24 @@ def main():
 
             # Learn when enough experience is accumulated
             #if (i % args.avg) == 0:
-            if (i % 32) == 0:
+
+            #if (i % 10) == 0 and i < 20:
+            #    learner.memory.clear()
+
+            if i > 32:
                 #learner.learn_from_experiences()
                 loss = learner.train_replay()
                 print("Episode ::", i,  file= loss_file)
                 print("Loss :: " , loss,  file = loss_file)
-                learner.memory.clear()
                 #learner.update_target_model()
 
-            if (i % 100) == 0:
+
+            if (i % 50) == 0:
                 print("** Copying Weights **",  file=f)
                 learner.update_target_model()
 
             # decay epsilon
-            learner.epsilon = learner.epsilon * 0.99
+            learner.epsilon = learner.epsilon * 0.999
             if learner.epsilon < 0.001:
                 learner.epsilon = 0.001
 
