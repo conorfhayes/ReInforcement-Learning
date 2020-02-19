@@ -9,7 +9,9 @@ import random
 import keras.backend as K
 import gym
 import numpy as np
+import pandas as pd
 from random import randint
+import time
 import datetime
 import tensorflow as tf
 from collections import deque
@@ -17,6 +19,8 @@ from keras.layers import Dense, Input, Activation
 from keras.models import Sequential, load_model, Model
 from keras.optimizers import SGD, Adam, rmsprop
 from keras.layers.core import Dense, Dropout, Activation, Flatten
+from array import *
+import collections
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 tf.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 tf.get_logger().setLevel('ERROR')
@@ -53,18 +57,25 @@ class Learner(object):
         """
 
         # Make environment
+        self.action_true = [0,0] 
+        self.action_taken = [0,0]
+
         self._env = gym.make(args.env)
         self._render = args.render
         self._return_type = args.ret
         self._extra_state = args.extra_state
-        self.learning_rate = 0.00001
+        self.learning_rate = 0.1
         self.gamma = 1.0
+
+        self.reward_counter = []
+        self.reward_counter.append([])
+        self.reward_counter.append([])
         #initialize Atoms
 
-        self.num_atoms = 51
+        self.num_atoms = 2
         self.v_max = 1
-        self.v_min = -1
-        self.epsilon = 0.99
+        self.v_min = 0
+        self.epsilon = 0.1
         self.delta_z = (self.v_max - self.v_min) / float(self.num_atoms - 1)
         self.z = [self.v_min + i * self.delta_z for i in range(self.num_atoms)]
 
@@ -81,6 +92,7 @@ class Learner(object):
         self.action_fish_true = 0
         self.prob_wood = 0
         self.prob_fish = 0
+        input_shape = 5
 
         self.time_to_train = False
 
@@ -120,12 +132,12 @@ class Learner(object):
             self._actual_state_vars = self._state_vars + self._num_rewards + 1  # Both addition
 
         #self.make_network(args.hidden, args.lr)
-        self.model = self.make_network([3], self.num_atoms, 2, self.learning_rate)
-        self.target_model = self.make_network([3], self.num_atoms, 2, self.learning_rate)
+        self.model = self.make_network(input_shape, self.num_atoms, 2, self.learning_rate)
+        self.target_model = self.make_network(input_shape, self.num_atoms, 2, self.learning_rate)
 
-        print('Number of primitive actions:', self._num_actions)
-        print('Number of state variables', self._actual_state_vars)
-        print('Number of objectives', self._num_rewards)
+        #print('Number of primitive actions:', self._num_actions)
+        #print('Number of state variables', self._actual_state_vars)
+        #print('Number of objectives', self._num_rewards)
 
         # Lists for policy gradient
         self._experiences = []
@@ -137,10 +149,10 @@ class Learner(object):
     def make_network(self, input_shape, num_atoms, action_size, learning_rate):
         """ Initialize a simple multi-layer perceptron for policy gradient
         """
-        
-        print("Input Shape : " , input_shape , file = self.debug_file)
 
-        state_input = Input(shape = (3 , ))
+        #print("Input Shape : " , input_shape , file = self.debug_file)
+
+        state_input = Input(shape = (input_shape , ))
         layer1 = Dense(100, activation = 'relu')(state_input)    
         #output = Dense(5, activation = 'relu')(layer1)
 
@@ -149,7 +161,7 @@ class Learner(object):
         for i in range(action_size):
             distribution_list.append(Dense(num_atoms, activation = 'softmax')(layer1))
 
-        print("Action Size : " , action_size , file = self.debug_file)
+        #print("Action Size : " , action_size , file = self.debug_file)
         #print(distribution_list , file = self.debug_file)
 
         model = Model(input = state_input, output = distribution_list)
@@ -177,19 +189,19 @@ class Learner(object):
         extratimestep = [(50 - timestep) * 0.1]
         extraaccrued = accrued * 0.1
 
-        
-        
+
+
         #np.append(rs, previous_reward)
 
         #np.append(rs, reward)
         #np.append(rs, previous_reward)
 
-        
+
             #np.append(rs, reward)
             #np.append(rs, previous_reward)
-        return np.append(rs, timestep)
-            
-    
+        return np.append(rs, np.append(extratimestep, extraaccrued))
+
+
     def encode_reward(self, reward):
         """ Encode a scalar or vector reward as an array
         """
@@ -197,6 +209,12 @@ class Learner(object):
             return np.array([reward])
         else:
             return np.array(reward)
+
+    def addTo(line):
+
+        multi_dim_list = []
+
+        return multi_dim_list
 
     def predict_probas(self, state):
         """ Return a probability distribution over actions given the current state.
@@ -279,18 +297,43 @@ class Learner(object):
         # Prepare for next episode
         self._experiences.clear()
 
+    def compare(self, lista, listb):
+
+        for list_ in listb:
+            #print("List B  : ", listb , file = self.debug_file)
+            #print("List   : ", list_ , file = self.debug_file)
+            if np.array_equal(np.array(lista), np.array(list_)):
+                #print("List Euqal  : " , file = self.debug_file)
+                return 0
+
+        return 1
+
+    def getRewardIndex(self, action, rewards, rewardsMatrix):
+
+        index = 0
+
+        for i in rewardsMatrix[action]:
+            if np.array_equal(np.array(i), np.array(rewards)):
+                return index
+
+            index += 1
+
+
+        return index
+
     def replay_memory(self, s_t, action_idx, r_t, s_t1, is_terminated):
 
         self.memory.append((s_t, action_idx, r_t, s_t1, is_terminated))        
 
     def train_replay(self):
-        print("In replay_memory : " , file = self.debug_file)
+        #print("In replay_memory : " , file = self.debug_file)
         num_samples = 32
         state_size = 2
         action_size = 2
         num_atoms = 51
-        gamma = 0.99
+        gamma = 1.0
         replay_samples = []
+        input_shape = 5
 
         #for i in range(num_samples):
         #    replay_samples[i] = self.memory[i]
@@ -298,8 +341,8 @@ class Learner(object):
         replay_samples = random.sample(self.memory, num_samples)
         #replay_samples = self.memory
 
-        state_inputs = np.zeros(shape = (num_samples, 3))
-        next_states = np.zeros(shape = (num_samples, 3))
+        state_inputs = np.zeros(shape = (num_samples, input_shape))
+        next_states = np.zeros(shape = (num_samples, input_shape))
         m_prob = [np.zeros((num_samples, self.num_atoms)) for i in range(action_size)]
         action, reward, done = np.zeros(shape = (num_samples, 1)), np.zeros(shape = (num_samples, 1)), np.zeros(shape = (num_samples, 1))
 
@@ -313,20 +356,20 @@ class Learner(object):
         #print("** Done **",replay_samples[0][4] , file = self.debug_file)
 
         for i in range(num_samples):
-            
+
             #print("** Memory **",replay_samples[i] , file = self.debug_file)
             state_inputs[i] = replay_samples[i][0]
             action[i] = replay_samples[i][1]
             reward[i] = replay_samples[i][2]
             next_states[i] = replay_samples[i][3]
             done[i] = replay_samples[i][4]
-        
-            
+
+
         z = self.model.predict(np.array(next_states))
         z_ = self.target_model.predict(np.array(next_states))
 
         cumulative_reward = np.zeros(shape=(1, self._num_rewards))
-        
+
         # Get Optimal Actions for the next states (from distribution z)
         optimal_action_idxs = []
         z_concat = np.vstack(z)
@@ -365,7 +408,7 @@ class Learner(object):
                     Tz = min(self.v_max, max(self.v_min, reward[i] + self.gamma * self.z[j]))                    
                     bj = (Tz - self.v_min) / self.delta_z 
                     m_l, m_u = math.floor(bj), math.ceil(bj)
-                    
+
                     m_prob[int(action[i])][i][int(m_l)] += z_[optimal_action_idxs[i]][i][j] * (m_u - bj)
                     m_prob[int(action[i])][i][int(m_u)] += z_[optimal_action_idxs[i]][i][j] * (bj - m_l)
 
@@ -376,22 +419,22 @@ class Learner(object):
 
 
     def get_optimal_action(self, state):
-        print("State : " , state , file = self.debug_file)
-       
+        #print("State : " , state , file = self.debug_file)
+
         state_array = np.array([state])
-        print("State Array : " , state_array , file = self.debug_file)
+        #print("State Array : " , state_array , file = self.debug_file)
         z = self.model.predict(state_array)      
-        print(len(z), file = self.debug_file) 
-        print(z , file = self.debug_file)
+        #print(len(z), file = self.debug_file) 
+        #print(z , file = self.debug_file)
         self.debug_file.flush()
         z_concat = np.vstack(z)
         q = np.sum(np.multiply(z_concat, np.array(self.z)), axis=1) 
-        print(q , file = self.debug_file)
+        #print(q , file = self.debug_file)
 
         # Pick action with the biggest Q value
         action_idx = np.argmax(q)
-        print(action_idx , file = self.debug_file)
-        
+        #print(action_idx , file = self.debug_file)
+
         return action_idx
 
     def run(self):
@@ -418,48 +461,82 @@ class Learner(object):
         potential_reward_wood3 = np.zeros(shape=(self._num_rewards,))
 
         timestep = 0
-        scalar_reward = 0
-        
+        scalar_reward = 0        
 
         action = 0
+        action_ = 0
+        time_since_utility = 0
+
+        action_taken = np.zeros(shape=(self._num_rewards,))
+        times_action_taken = np.zeros(shape=(self._num_rewards,))
+
+        reward_wood = np.zeros(shape=(self._num_rewards,))
+        reward_fish = np.zeros(shape=(self._num_rewards,))
+        previous_utility = 0
+        num_actions = 2
 
 
+
+        rewards_ = []
+        #rewards_recieved = [[0 for x in range(2)] for y in range(1)]
+        count_actions_taken = [2]
+        reward_prob = [2]
+        potential_reward_action = []
+
+        rewards_.append([])
+        rewards_.append([])
+
+        #potential_reward_action.append([])
+        #potential_reward_action.append([])
 
         while not done:
             timestep += 1
-            print(" *** timestep *** : " , timestep , file = self.debug_file)
+            #print(" *** timestep *** : " , timestep , file = self.debug_file)
             # Select an action or option based on the current state            
             old_env_state = env_state
 
             state = self.encode_state(env_state, timestep, cumulative_rewards, cumulative_rewards, previous_culmulative_rewards)
-            print("State :: " , state,  file = self.debug_file)
+            #print("State :: " , state,  file = self.debug_file)
             #print(state)
 
             #probas = self.predict_probas(state)
             #action = np.random.choice(self._num_actions, p=probas)
             #print("Encoded State : " , state , file = self.debug_file)
-            
-                
+
+
             if timestep > 32:
                 self.time_to_train = True
 
-            if self.time_to_train == True:
+            if self.time_to_train == True and timestep % 15 == 0:
                 loss = self.train_replay()
 
-            #potential_reward_fish = [1,0] + cumulative_rewards
-            
-            #potential_reward_wood = [0,1] + cumulative_rewards 
 
-            #if self.scalarize_reward(potential_reward_fish) - self.scalarize_reward(cumulative_rewards) == 1:
-                
-            #    action = 0
+            ## Action Selection 1
+            # Begin
+            # Selects action that will increase utility by 1 from the culmulative reward.
+            # If both actions will not increase utility by 1 (0) then select a random action
 
-            #elif self.scalarize_reward(potential_reward_wood) - self.scalarize_reward(cumulative_rewards) == 1:
-                
-            #    action = 1
+            potential_reward_fish = [1,0] + cumulative_rewards
 
-            #else:
-            #    action = round(randint(0, 1))
+            potential_reward_wood = [0,1] + cumulative_rewards 
+
+            if self.scalarize_reward(potential_reward_fish) - self.scalarize_reward(cumulative_rewards) == 1:
+
+                action_ = 0
+
+            elif self.scalarize_reward(potential_reward_wood) - self.scalarize_reward(cumulative_rewards) == 1:
+
+                action_ = 1
+
+            else:
+                action_ = round(randint(0, 1))
+
+            #End
+
+            # Tablular Distribution RL 
+            # Begin
+
+
             wood = []
             fish = []
             action_holder = []
@@ -472,12 +549,13 @@ class Learner(object):
             self.action_fish_true += self.reward_value_fish
 
             if timestep > 1:
+
                 self.prob_fish = self.action_fish_true / self.action_fish
                 self.prob_wood = self.action_wood_true / self.action_wood
 
-                print("action_fish_true : " , self.action_fish_true , file = self.debug_file)
-                print("action_fish : " , self.action_fish , file = self.debug_file)
-            
+                #print("action_fish_true : " , self.action_fish_true , file = self.debug_file)
+                #print("action_fish : " , self.action_fish , file = self.debug_file)
+
 
             potential_reward_wood = cumulative_rewards
             potential_reward_wood1 = (self.scalarize_reward(([0,0] + cumulative_rewards)) - self.scalarize_reward(cumulative_rewards)) * self.prob_fish
@@ -493,8 +571,8 @@ class Learner(object):
             #print("potential_reward_fish3 ns : " , self.scalarize_reward(([1,0] + cumulative_rewards)) , file = self.debug_file)
             #print("potential_reward_fish3 ns2 : " , self.scalarize_reward(([1,0] + cumulative_rewards)) - self.scalarize_reward(cumulative_rewards)  , file = self.debug_file)
 
-            print("Prob Fish : " , self.prob_fish , file = self.debug_file)
-            print("Prob Wood : " , self.prob_wood , file = self.debug_file)
+            #print("Prob Fish : " , self.prob_fish , file = self.debug_file)
+            #print("Prob Wood : " , self.prob_wood , file = self.debug_file)
 
             wood.append(potential_reward_wood1)
             wood.append(potential_reward_wood2)
@@ -511,8 +589,8 @@ class Learner(object):
 
             #print("Max Wood : " , max_wood , file = self.debug_file)
             #print("Max Fish : " , max_fish , file = self.debug_file)
-            
-            
+
+
 
             if max_fish == 0.0 and max_wood == 0.0:
                 #print("Max : " , max_fish, max_wood , file = self.debug_file)
@@ -521,7 +599,7 @@ class Learner(object):
 
             action_holder = [max_fish, max_wood]
 
-            
+
             check = random.uniform(0, 1)
 
             if check < self.epsilon:
@@ -529,6 +607,7 @@ class Learner(object):
                 action = random.randint(0, 1)
             #    print("Random Action : " , action , file = self.debug_file)
             else:
+                #action = action_
                 #action = action_holder.index(max(action_holder))
                 action = self.get_optimal_action(state)
 
@@ -537,7 +616,59 @@ class Learner(object):
 
             if action == 1:
                 self.action_wood += 1
-            
+
+            #End
+
+            increase_utility = 0
+
+            potential_reward_action = []
+            potential_reward_action.append([])
+            potential_reward_action.append([])
+            prob_reward = 0
+
+            if timestep < 10:
+                    action = random.randint(0, 1)
+
+            else:
+                for i in range(num_actions): 
+                    x = 0
+
+                    #print(" **** reward all **** : " , rewards_ , file = self.debug_file)
+                    for j in range(len(rewards_[i])):
+
+                        reward = np.array(rewards_[i][j])
+
+                        prob_reward = self.reward_counter[i][j] / self.action_taken[i]
+
+                        #print(" **** Stats **** :: " , file = self.debug_file)
+                        #print("Action :: " , i,  file = self.debug_file)
+                        #print("Reward :: " , reward,  file = self.debug_file)
+                        #print("Prob of getting that reward :: " , prob_reward,  file = self.debug_file)
+                        #print("**** End Stats ****  :: " ,  file = self.debug_file)
+
+                        #print("prob_reward :: " , prob_reward,  file = self.debug_file)
+                        #print("action taken :: " , self.action_taken,  file = self.debug_file)
+                        #print("action taken :: " , self.action_taken[0],  file = self.debug_file)
+                        #print("action taken :: " , self.action_taken[1],  file = self.debug_file)
+                        #print("reward_counter :: " , reward_counter[i][j],  file = self.debug_file)
+
+                        potential_reward = (self.scalarize_reward(reward + cumulative_rewards) - self.scalarize_reward(cumulative_rewards)) * prob_reward                        #
+                        potential_reward_action[i].append(potential_reward)
+
+
+                        x += 1
+                #print("reward_ :: " , rewards_,  file = self.debug_file)
+                #print("potential_reward_action :: " , potential_reward_action,  file = self.debug_file)
+                max_value = 0
+
+                #action = np.unravel_index(potential_reward_action.argmax())
+                #action = random.randint(0, 1)
+
+            self.action_taken[action] += 1
+            previous_utility = self.scalarize_reward(cumulative_rewards)
+
+
+
 
             # Store experience, without the reward, that is not yet known
             e = Experience(
@@ -564,8 +695,11 @@ class Learner(object):
             if self._render:
                 self._env.render()
 
+            #print("Action1 :: " , action,  file = self.debug_file)
+            #print("reward1 :: " , rewards,  file = self.debug_file)
+
             # Update the experience with its reward
-            
+
             cumulative_rewards += rewards
             previous_culmulative_rewards = cumulative_rewards - rewards
 
@@ -573,21 +707,43 @@ class Learner(object):
             min_reward = [0,0]
             compare = np.subtract(cumulative_rewards, previous_culmulative_rewards) 
 
+            current_utility = 0
+            current_utility = self.scalarize_reward(cumulative_rewards) - previous_utility
+
+
+
+            if current_utility > 1:
+                self.action_true[action] += 1
+
+            #self.action_taken[action] += 1
+
+
+
+
+
             if np.array_equal(compare, min_reward) == 0:
                 if reward == 0.0:
-                    scalar_reward = -0.1
+                    time_since_utility +=1
+
+                    if time_since_utility > 2:
+                        scalar_reward = 0
+                    else:
+                        scalar_reward = 0.5
+                    #scalar_reward = 0.75 / time_since_utility
                 elif reward == 1.0:
                     scalar_reward = 1
+                    time_since_utility = 0
             else:
-                scalar_reward = 0.1
+                scalar_reward = 0.5
+                time_since_utility += 1
 
             #scalar_reward = reward
-            
-            print(" **** Scalar Reward **** : " , scalar_reward , file = self.debug_file)
-            print(" **** Previous Culmulative Rewards **** : " , previous_culmulative_rewards , file = self.debug_file)
-            print(" **** Culmulative Rewards **** : " , cumulative_rewards , file = self.debug_file)
-            print(" **** Reward **** : " , reward , file = self.debug_file)
-            print(" **** Compare **** : " , compare , file = self.debug_file)
+
+            #print(" **** Scalar Reward **** : " , scalar_reward , file = self.debug_file)
+            #print(" **** Previous Culmulative Rewards **** : " , previous_culmulative_rewards , file = self.debug_file)
+            #print(" **** Culmulative Rewards **** : " , cumulative_rewards , file = self.debug_file)
+            #print(" **** Reward **** : " , reward , file = self.debug_file)
+            #print(" **** Compare **** : " , compare , file = self.debug_file)
 
 
             e.rewards = rewards
@@ -600,11 +756,22 @@ class Learner(object):
                 next_timestep = timestep + 1
 
             next_state = self.encode_state(env_state, next_timestep, cumulative_rewards, cumulative_rewards, previous_culmulative_rewards)
-            
+
             #print("Next State :: " , next_state,  file = self.debug_file)
             #print("Before" ,  file = self.debug_file)
             self.replay_memory(state, action, scalar_reward, next_state, done)
             #print("After" ,  file = self.debug_file)
+
+            if self.compare(rewards, rewards_[action]) == 1:
+                rewards_[action].append(rewards)
+                self.reward_counter[action].append(0)
+
+            reward_index = self.getRewardIndex(action, rewards, rewards_)
+            self.reward_counter[action][reward_index] += 1
+
+
+
+
 
         # Mark episode boundaries
         self._experiences[-1].interrupt = True
@@ -615,6 +782,9 @@ class Learner(object):
 
 
 def main():
+
+    num_runs = 50
+    episodes = 10000
     # Parse parameters
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
 
@@ -636,6 +806,7 @@ def main():
 
     # Instantiate learner
     learner = Learner(args)
+    df = pd.DataFrame()
     #learner.model = self.make_network()
 
     # Learn
@@ -644,18 +815,19 @@ def main():
 
     if args.monitor:
         learner._env.monitor.start('/tmp/monitor', force=True)
+    for run in range(num_runs):
+        runData = [] 
+        try:
+            old_dt = datetime.datetime.now()
+            avg = np.zeros(shape=(learner._num_rewards,))
 
-    try:
-        old_dt = datetime.datetime.now()
-        avg = np.zeros(shape=(learner._num_rewards,))
-
-        for i in range(args.episodes):
-            rewards = learner.run()
-            print("Episode ::", i,  file=f)
-            if i == 0:
-                avg = rewards
-            else:
-                avg = 0.99 * avg + 0.01 * rewards
+            for i in range(episodes):
+                rewards = learner.run()
+            #print("Episode ::", i,  file=f)
+                if i == 0:
+                    avg = rewards
+                else:
+                    avg = 0.99 * avg + 0.01 * rewards
 
             # Learn when enough experience is accumulated
             #if (i % args.avg) == 0:
@@ -671,29 +843,39 @@ def main():
                 #learner.update_target_model()
 
 
-            if (i % 1.5) == 0:
-                print("** Copying Weights **",  file=f)
-                learner.update_target_model()
+                if (i % 100) == 0:
+                #print("** Copying Weights **",  file=f)
+                    learner.update_target_model()
 
-            # decay epsilon
-            learner.epsilon = learner.epsilon * 0.99
-            if learner.epsilon < 0.1:
-                learner.epsilon = 0.1
+                # decay epsilon
+                learner.epsilon = learner.epsilon * 0.99
+                if learner.epsilon < 0.05:
+                    learner.epsilon = 0.05
 
-            scalarized_avg = learner.scalarize_reward(avg)
+                scalarized_avg = learner.scalarize_reward(avg)
+                runData.append(scalarized_avg)
 
-            print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
-            print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
-            print("Epsilon ::", learner.epsilon, file = f)
-            f.flush()
 
-    except KeyboardInterrupt:
-        pass
+                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
+                #print(df, file= f)
+            #print("Epsilon ::", learner.epsilon, file = f)
+                f.flush()
 
-    if args.monitor:
-        learner._env.monitor.close()
+            df['Run ' + str(run)] = runData
 
-    f.close()
+        except KeyboardInterrupt:
+            pass
+
+        if args.monitor:
+            learner._env.monitor.close()
+    
+    t = time.localtime()
+    #print(df, file=f)
+    timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    df.to_csv(r'Experiments/Exp_ALA_DistributionalRL_C51_' + timestamp + '.csv')     
+      
+    #f.close()
 
 if __name__ == '__main__':
     main()
