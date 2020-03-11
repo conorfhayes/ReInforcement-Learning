@@ -97,17 +97,16 @@ class Node():
 
         if _all_ == True:
 
-            if self.parent == True:            
-                #for action in range(self.action):
-                for reward in self.rewardprobs[self.action]:                
-                    
-                    self.probability = self.rewardprobs[self.action].get(reward)
-                    self.cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                        
+            if self.parent is True:                
+                for reward in self.rewardprobs[self.action]: 
+
+                    self.probability = self.rewardprobs[self.action].get(str(reward))
+                    cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
 
                     for action in range(self.num_actions):
                         for reward in self.rewardprobs[action]:
                             if self.layer <= self.simulations:
-                                cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
+                                cumulative_rewards = cumulative_rewards + self.rewards[action].get(str(reward))
                                 probability = self.rewardprobs[action].get(reward)
 
                                 if self.probability == 0:
@@ -391,6 +390,7 @@ class Learner(object):
         return
 
     def run(self):
+
         """ Execute an option on the environment
         """
         env_state = self._env.reset()
@@ -405,10 +405,8 @@ class Learner(object):
         scalar_reward = 0
 
         action = -10
-        # action_ = 0
+        
         time_since_utility = 0
-
-        # self.dict = lambda : defaultdict(self.dict)
 
         action_taken = np.zeros(shape=(self._num_rewards,))
         times_action_taken = np.zeros(shape=(self._num_rewards,))
@@ -423,14 +421,9 @@ class Learner(object):
         new_env_state = -1
 
         rewards_ = []
-        # rewards_recieved = [[0 for x in range(2)] for y in range(1)]
-        
-
-        # potential_reward_action.append([])
-        # potential_reward_action.append([])
 
         while not done:
-            self.timestep += 1
+            #self.timestep += 1
             # print(" *** timestep *** : " , timestep , file = self.debug_file)
             # Select an action or option based on the current state
 
@@ -465,43 +458,64 @@ class Learner(object):
                 rewards = []
                 valueCheck = 0
                 actionPicked = False
-                #action = 0
                 action_rewards = []
                 action_prob = []
                 dictResults = {}
+                dictRewards = {}
+                d1 = {}
+                d2 = {}
                 _all_ = True
-                #cumulative_rewards = [1., 4.]
+                
                 for i in range(self.num_actions):
-                    dictResults.update({i: {}})
+                    dictResults.update({i : {}})
+                    dictRewards.update({i : {}})
 
-                for _action_ in range(self.num_actions):
+                for _action_ in range(self.num_actions):                    
+                    a = self.rollOut(self._env, _action_, _action_, 0, cumulative_rewards, self.timestep, 0,
+                                     self.debug_file, self.dict, True, _all_)
 
-                    # env, action, state, id, cumulative_rewards, timestep)
-
-                    action_rewards.append(
-                        self.rollOut(self._env, _action_, _action_, 0, cumulative_rewards, self.timestep, 0,
-                                     self.debug_file, self.dict, True, _all_)[0])
-                    action_prob.append(
-                        self.rollOut(self._env, _action_, _action_, 0, cumulative_rewards, self.timestep, 0,
-                                     self.debug_file, self.dict, True, _all_)[1]);
+                    action_rewards.append(a[0])                        
+                    action_prob.append(a[1])
 
                     for i in range(len(action_rewards[_action_])):
+
+                        d2 = {str(action_rewards[_action_][i]) : action_rewards[_action_][i]}
+                        dictRewards[_action_].update(d2)
 
                         if str(action_rewards[_action_][i]) in dictResults[_action_]:
                             
                             d1 = {str(action_rewards[_action_][i]): dictResults[_action_].get(
-                                str(action_rewards[_action_][i])) + action_prob[_action_][i]}
+                                str(action_rewards[_action_][i])) + action_prob[_action_][i]}                            
                             
                             dictResults[_action_].update(d1)
-
                         else:
                             dictResults[_action_].update({str(action_rewards[_action_][i]): action_prob[_action_][i]})
 
-                
+                chance = -2147483648    
+                for _action_ in range(2):
+                    for reward in dictResults[_action_]:
+                        scalarize_reward = self.scalarize_reward(cumulative_rewards)
+                        #print('Dictionary Rewards', dictRewards[action], file=self.debug_file)
+                        #print('Potential Rewards', dictRewards[action].get(str(reward)), file=self.debug_file)
+                        potential_reward = self.scalarize_reward(dictRewards[_action_].get(reward))
+                        #print('Potential Rewards2', potential_reward, file=self.debug_file)
+                        utility = potential_reward - scalarize_reward
+                        utility_chance = utility * dictResults[_action_].get(str(reward))
+                        prob = dictResults[_action_].get(str(reward))
+                        #print('Utility', utility, file=self.debug_file)
+                        #print('Utility Chance', utility_chance, file=self.debug_file)
+
+                        if utility > chance:
+                            chance = utility
+                            action = _action_
+
+
+
+
                 print('Cumulative Rewards', cumulative_rewards, file=self.debug_file)
                 print("Dictionary Action 0 :: ", dictResults[0], file=self.debug_file)
                 print("Dictionary Action 1 :: ", dictResults[1], file=self.debug_file)
-                print("Action Rewards :: ", action_rewards, file=self.debug_file)
+                #print("Action Rewards :: ", action_rewards, file=self.debug_file)
 
                 #self.graph(dictResults[0])
             
