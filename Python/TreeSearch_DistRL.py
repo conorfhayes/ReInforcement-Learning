@@ -34,11 +34,9 @@ class Node():
 
     def __init__(self, env, action, state, id, cumulative_rewards, timestep, layer, file, _dict_, probability, parent,_all_):
 
-        self.simulations = 4
+        self.simulations = 1
         self.num_actions = 2
-        # self.tabular = tabular
-
-        # self.debug_file = open('Node ' + str(id) ,'w')
+        
         self.debug_file = file
         self.children = []
         self.parent = parent
@@ -52,7 +50,7 @@ class Node():
         self.times_visited = 0
         self.reward = 0
         self.timestep = timestep
-        # self._cumulative_rewards_ = cumulative_rewards
+        
         self.cumulative_rewards = cumulative_rewards
         self.id = id
         self.done = False
@@ -61,10 +59,9 @@ class Node():
         self._all_ = _all_
         
         self.state = state
-        self.rewardprobs = {0: {str([0, 0]): 0.45, str([1, 0]): 0.05}, 1: {str([0, 0]): 0.05, str([1, 0]): 0.45}}
-        self.rewards = {0: {str([0, 0]): [0, 0], str([1, 0]): [1, 0]}, 1: {str([0, 0]): [0, 0], str([1, 0]): [1, 0]}}
-        # self.actionProbs = {0 : {[0,0], [1,0]}, 1: {[0,0], [0,1]}}
-        self.rewards_counter = [[[0], [0]], [[0], [0]]]
+        self.rewardprobs = {0: {str([0, 0]) : 0.45, str([1, 0]) : 0.05}, 1: {str([0, 0]) : 0.05, str([0, 1]) : 0.45}}
+        self.rewards = {0: {str([0, 0]) : [0, 0], str([1, 0]) : [1, 0]}, 1: {str([0, 0]) : [0, 0], str([0, 1]) : [0, 1]}}
+        
         self.run(self.state, _dict_, self.probability, self._all_)
 
     def getDetails(self):
@@ -74,31 +71,14 @@ class Node():
     def create_children(self, state, action, cumulative_rewards, _dict_, probability, _all_):
         child_id = self.id + 1
 
-        # env_timestep = child_id + self.timestep
-        # for i in range(self.num_actions):.
-
         self.children.append(
             Node(self.env, action, state, child_id, cumulative_rewards, self.timestep + 1, self.layer, self.debug_file,
                  _dict_, probability, False, _all_))
         self.unique_id += 1
-
-    def getState(self, state, action):
-
-        if state == 0 and action == 1:
-            state = 1
-        elif state == 1 and action == 1:
-            state = 1
-        elif state == 0 and action == 0:
-            state = 0
-        elif state == 0 and action == 0:
-            state = 0
-
-        return state
+    
 
     def simultation(self, state, action, cumulative_rewards, timestep, _dict_):
         next_state, reward, timestep, self.done, __ = self.env.step(action, action, timestep)
-        # print("Action :", action, file = self.debug_file)
-        # print("Reward :", reward, file = self.debug_file)
 
         probability = (_dict_[state][action][next_state][str(reward)]['count'] / _dict_[state][action][next_state][
             'count']) / self.num_actions
@@ -109,33 +89,51 @@ class Node():
 
     def run(self, state, _dict_, probability, _all_):
         timestep = self.timestep
-        # state = 0
+        
+
+        # Lines 94 - 136 is purely for demonstration purposes only. This code
+        # generates all possible future rewards and compute the propability of these rewards
+        # This is implemented simply for comparison and may not be computationally practicle to use
 
         if _all_ == True:
 
-            #for action in range(self.num_actions):
-            if self.parent == True:
-            #    for reward in self.rewardprobs[self.action]:
-            #    #if self.parent == True:
-                #self.probability = self.rewardprobs[self.action].get(reward)
-                #cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))
-                self.probability, next_state, self.cumulative_rewards = self.simultation(self.action, self.action,
-                                                                                      self.cumulative_rewards,
-                                                                                      timestep, _dict_)
+            if self.parent == True:            
+                #for action in range(self.action):
+                for reward in self.rewardprobs[self.action]:                
+                    
+                    self.probability = self.rewardprobs[self.action].get(reward)
+                    self.cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                        
 
-            for action in range(self.num_actions):
-                for reward in self.rewardprobs[action]:
-                    if self.layer <= self.simulations:
-                        cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
-                        probability = self.rewardprobs[action].get(reward)
+                    for action in range(self.num_actions):
+                        for reward in self.rewardprobs[action]:
+                            if self.layer <= self.simulations:
+                                cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
+                                probability = self.rewardprobs[action].get(reward)
 
-                        if self.probability == 0:
-                            self.probability = probability
-                        else:
-                            self.probability = probability * self.probability
+                                if self.probability == 0:
+                                    self.probability = probability
+                                else:
+                                    self.probability = probability * self.probability
 
-                    if self.layer <= self.simulations and self.done == False:
-                        self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
+                            if self.layer <= self.simulations and self.done == False:
+                                self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
+
+            else:
+                for action in range(self.num_actions):
+                    for reward in self.rewardprobs[action]:
+                        if self.layer <= self.simulations:
+                            cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
+                            probability = self.rewardprobs[action].get(reward)
+
+                            if self.probability == 0:
+                                self.probability = probability
+                            else:
+                                self.probability = probability * self.probability
+
+                        if self.layer <= self.simulations and self.done == False:
+                            self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
+
+        # Beginning of generation of the tree search algorithm
 
         else:
             if self.parent == True:
@@ -144,9 +142,6 @@ class Node():
                                                                                       timestep, _dict_)
                 state = next_state
                 self.probability = _probability_
-                # print("Action :", self.action, file = self.debug_file)
-                # print("Self Cumulative Rewards :", self.cumulative_rewards, file = self.debug_file)
-                # print("Cumulative Rewards :", cumulative_rewards, file = self.debug_file)
 
             # timestep = self.timestep + 1
 
@@ -452,6 +447,7 @@ class Learner(object):
             potential_reward_action.append([])
             potential_reward_action.append([])
             prob_reward = 0
+            #action = 0
 
             if check < self.epsilon:
                 # select random action
@@ -469,12 +465,12 @@ class Learner(object):
                 rewards = []
                 valueCheck = 0
                 actionPicked = False
-                action = 0
+                #action = 0
                 action_rewards = []
                 action_prob = []
                 dictResults = {}
                 _all_ = True
-
+                #cumulative_rewards = [1., 4.]
                 for i in range(self.num_actions):
                     dictResults.update({i: {}})
 
@@ -509,7 +505,7 @@ class Learner(object):
 
                 #self.graph(dictResults[0])
             
-            
+            action = random.randint(0, 1)
             if len(self._aspace) > 1:
                 # Choose each of the factored action depending on the composite action
                 actions = [0] * len(self._aspace)
