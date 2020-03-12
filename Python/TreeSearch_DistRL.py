@@ -94,28 +94,28 @@ class Node():
         # Lines 94 - 136 is purely for demonstration purposes only. This code
         # generates all possible future rewards and compute the propability of these rewards
         # This is implemented simply for comparison and may not be computationally practicle to use
-
+       
         if _all_ == True:
 
             if self.parent is True:                
                 for reward in self.rewardprobs[self.action]: 
 
                     self.probability = self.rewardprobs[self.action].get(str(reward))
-                    cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
+                    self.cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
 
                     for action in range(self.num_actions):
                         for reward in self.rewardprobs[action]:
                             if self.layer <= self.simulations:
-                                cumulative_rewards = cumulative_rewards + self.rewards[action].get(str(reward))
+                                cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
                                 probability = self.rewardprobs[action].get(reward)
 
                                 if self.probability == 0:
                                     self.probability = probability
                                 else:
-                                    self.probability = probability * self.probability
+                                    probability = probability * self.probability
 
                             if self.layer <= self.simulations and self.done == False:
-                                self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
+                                self.create_children(action, action, cumulative_rewards, _dict_, probability, _all_)
 
             else:
                 for action in range(self.num_actions):
@@ -389,6 +389,7 @@ class Learner(object):
 
         return
 
+
     def run(self):
 
         """ Execute an option on the environment
@@ -491,35 +492,46 @@ class Learner(object):
                         else:
                             dictResults[_action_].update({str(action_rewards[_action_][i]): action_prob[_action_][i]})
 
-                chance = -2147483648    
+                chance = 0 
+                prob_chance = 0  
+
                 for _action_ in range(2):
+
                     for reward in dictResults[_action_]:
                         scalarize_reward = self.scalarize_reward(cumulative_rewards)
-                        #print('Dictionary Rewards', dictRewards[action], file=self.debug_file)
-                        #print('Potential Rewards', dictRewards[action].get(str(reward)), file=self.debug_file)
+                        #print('Action Examined :: ', _action_, file = self.debug_file)
+                        #print('Dictionary Rewards', dictRewards[_action_], file=self.debug_file)
+                        #print('Potential Rewards', dictRewards[_action_].get(str(reward)), file=self.debug_file)
                         potential_reward = self.scalarize_reward(dictRewards[_action_].get(reward))
                         #print('Potential Rewards2', potential_reward, file=self.debug_file)
                         utility = potential_reward - scalarize_reward
                         utility_chance = utility * dictResults[_action_].get(str(reward))
                         prob = dictResults[_action_].get(str(reward))
-                        #print('Utility', utility, file=self.debug_file)
-                        #print('Utility Chance', utility_chance, file=self.debug_file)
+                        #print('Reward ', reward, file=self.debug_file)
+                        #print('Prob', prob, file=self.debug_file)
 
-                        if utility > chance:
+                        if (utility == 1) and (prob > prob_chance):
                             chance = utility
-                            action = _action_
+                            prob_chance = prob
+                            #print('Prob Chance ', prob_chance, file=self.debug_file)
+                            #print('Prob', prob, file=self.debug_file)
+                            action = _action_                        
+
+                if action == -10:
+                    action = random.randint(0, 1)
 
 
 
-
-                print('Cumulative Rewards', cumulative_rewards, file=self.debug_file)
-                print("Dictionary Action 0 :: ", dictResults[0], file=self.debug_file)
-                print("Dictionary Action 1 :: ", dictResults[1], file=self.debug_file)
-                #print("Action Rewards :: ", action_rewards, file=self.debug_file)
+                #print('Cumulative Rewards', cumulative_rewards, file=self.debug_file)
+                #print("Dictionary Action 0 :: ", dictResults[0], file=self.debug_file)
+                #print("Dictionary Action 1 :: ", dictResults[1], file=self.debug_file)
+                #print("Action Selected :: ", action, file=self.debug_file)
+                #print("Action Reward :: ", action_rewards, file=self.debug_file)
+                #print("Action Prob :: ", action_prob, file=self.debug_file)
 
                 #self.graph(dictResults[0])
             
-            action = random.randint(0, 1)
+            #action = random.randint(0, 1)
             if len(self._aspace) > 1:
                 # Choose each of the factored action depending on the composite action
                 actions = [0] * len(self._aspace)
@@ -554,6 +566,15 @@ class Learner(object):
         # previous_culmulative_rewards = cumulative_rewards
         return cumulative_rewards
 
+def progress(count, total, status=''):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+
+    percents = round(100.0 * count / float(total), 1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
+    sys.stdout.flush()
 
 def main():
     # Parse parameters
@@ -607,6 +628,8 @@ def main():
                 learner.epsilon = 0.001
 
             scalarized_avg = learner.scalarize_reward(avg)
+
+            progress(i, args.episodes, status='Doing very long job')
 
             print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
             # print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, file = f )
