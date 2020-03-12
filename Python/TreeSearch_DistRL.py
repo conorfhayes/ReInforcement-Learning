@@ -101,12 +101,12 @@ class Node():
                 for reward in self.rewardprobs[self.action]: 
 
                     self.probability = self.rewardprobs[self.action].get(str(reward))
-                    self.cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
+                    cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
 
                     for action in range(self.num_actions):
                         for reward in self.rewardprobs[action]:
                             if self.layer <= self.simulations:
-                                cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
+                                cumulative_rewards1 = cumulative_rewards + self.rewards[action].get(str(reward))
                                 probability = self.rewardprobs[action].get(reward)
 
                                 if self.probability == 0:
@@ -115,7 +115,7 @@ class Node():
                                     probability = probability * self.probability
 
                             if self.layer <= self.simulations and self.done == False:
-                                self.create_children(action, action, cumulative_rewards, _dict_, probability, _all_)
+                                self.create_children(action, action, cumulative_rewards1, _dict_, probability, _all_)
 
             else:
                 for action in range(self.num_actions):
@@ -465,7 +465,7 @@ class Learner(object):
                 dictRewards = {}
                 d1 = {}
                 d2 = {}
-                _all_ = True
+                _all_ = False
                 
                 for i in range(self.num_actions):
                     dictResults.update({i : {}})
@@ -496,7 +496,6 @@ class Learner(object):
                 prob_chance = 0  
 
                 for _action_ in range(2):
-
                     for reward in dictResults[_action_]:
                         scalarize_reward = self.scalarize_reward(cumulative_rewards)
                         #print('Action Examined :: ', _action_, file = self.debug_file)
@@ -505,19 +504,23 @@ class Learner(object):
                         potential_reward = self.scalarize_reward(dictRewards[_action_].get(reward))
                         #print('Potential Rewards2', potential_reward, file=self.debug_file)
                         utility = potential_reward - scalarize_reward
+                        #print('Utility ', utility, file=self.debug_file)
                         utility_chance = utility * dictResults[_action_].get(str(reward))
                         prob = dictResults[_action_].get(str(reward))
                         #print('Reward ', reward, file=self.debug_file)
                         #print('Prob', prob, file=self.debug_file)
 
-                        if (utility == 1) and (prob > prob_chance):
-                            chance = utility
+                        if utility_chance > chance:
+                            #if prob > prob_chance:
+                            chance = utility_chance
                             prob_chance = prob
+                            #print('Chance ', chance, file=self.debug_file)
                             #print('Prob Chance ', prob_chance, file=self.debug_file)
                             #print('Prob', prob, file=self.debug_file)
                             action = _action_                        
 
                 if action == -10:
+                    print('Random Action', action, file=self.debug_file)
                     action = random.randint(0, 1)
 
 
