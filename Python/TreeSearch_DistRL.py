@@ -12,7 +12,11 @@ import datetime
 from collections import deque
 from array import *
 import collections
-import matplotlib.pyplot as plt
+
+import pandas as pd
+import time
+from datetime import datetime, date
+
 
 from gym.envs.registration import register
 
@@ -114,7 +118,7 @@ class Node():
                                 else:
                                     probability = probability * self.probability
 
-                            if self.layer <= self.simulations and self.done == False:
+                            if self.layer <= self.simulations and self.timestep <= 200:
                                 self.create_children(action, action, cumulative_rewards1, _dict_, probability, _all_)
 
             else:
@@ -178,12 +182,25 @@ class Learner(object):
         self.num_actions = 2
         self.num_timesteps = 200
 
-        self.dict = {}        
+        self.dict = {}   
+        #self.dict = {l0: [{l1: [{l2 : [{"count" : 0}] for l2 in range(2)}] for l1 in range(2)}] for l0 in range(2)}
+        #_dict_.update({env_state: {action: {new_env_state: {str(rewards): {'count': 0}, 'count': 0}}}})
+        
+        for i in range(2):
+            self.dict.update({i : {}})              
+            for j in range(2):
+                self.dict[i].update({j : {}})                
+                for k in range(2):
+                    self.dict[i][j].update({k : {'count' : 0}})
+
+           
 
         # Make environment
         self.debug_file = open('debug', 'w')
         self.action_true = [0, 0, 0, 0, 0, 0, 0, 0]
         # self.action_taken = [100][8]
+
+        #print("Test Self Instantiate ::", self.dict, file= self.debug_file)   
 
         self.epsilon = 1.0
 
@@ -358,7 +375,7 @@ class Learner(object):
     
 
     def updateDictionary(self, env_state, action, new_env_state, rewards, _dict_):
-
+        """
         if env_state in _dict_:
             if action in _dict_[env_state]:
                 if new_env_state in _dict_[env_state][action]:
@@ -372,22 +389,19 @@ class Learner(object):
                 _dict_[env_state].update({action: {new_env_state: {str(rewards): {'count': 0}, 'count': 0}}})
         else:
             _dict_.update({env_state: {action: {new_env_state: {str(rewards): {'count': 0}, 'count': 0}}}})
-
+        
+        """
+        #print("Test Self Instantiate ::", _dict_, file= self.debug_file)
         if str(rewards) in _dict_[env_state][action][new_env_state]:
             pass
+            
         else:
-            _dict_[env_state][action][new_env_state][str(rewards)]['count'] = 0
+            _dict_[env_state][action][new_env_state].update({str(rewards): {'count': 0}})
+            #_dict_[env_state][action][new_env_state][str(rewards)]['count'] = 0
 
         return _dict_
 
-    def graph(self, _dict_):
 
-        plt.bar(range(len(_dict_)), list(_dict_.values()), align='center', alpha=0.5)
-        plt.xticks(range(len(_dict_)), list(_dict_.keys()))
-        # matplotlib.pyplot.show()
-        plt.show(block=True)
-
-        return
 
 
     def run(self):
@@ -465,7 +479,7 @@ class Learner(object):
                 dictRewards = {}
                 d1 = {}
                 d2 = {}
-                _all_ = False
+                _all_ = True
                 
                 for i in range(self.num_actions):
                     dictResults.update({i : {}})
@@ -516,11 +530,11 @@ class Learner(object):
                             prob_chance = prob
                             #print('Chance ', chance, file=self.debug_file)
                             #print('Prob Chance ', prob_chance, file=self.debug_file)
-                            #print('Prob', prob, file=self.debug_file)
+                            #print('Action ', action, file=self.debug_file)
                             action = _action_                        
 
                 if action == -10:
-                    print('Random Action', action, file=self.debug_file)
+                    #print('Random Action', action, file=self.debug_file)
                     action = random.randint(0, 1)
 
 
@@ -581,72 +595,91 @@ def progress(count, total, status=''):
 
 def main():
     # Parse parameters
+    num_runs = 1
+    episodes = 10000
+    
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
 
-    parser.add_argument("--render", action="store_true", default=False,
-                        help="Enable a graphical rendering of the environment")
+    parser.add_argument("--render", action="store_true", default=False, help="Enable a graphical rendering of the environment")
     parser.add_argument("--monitor", action="store_true", default=False, help="Enable Gym monitoring for this run")
     parser.add_argument("--env", required=True, type=str, help="Gym environment to use")
     parser.add_argument("--avg", type=int, default=1, help="Episodes run between gradient updates")
     parser.add_argument("--episodes", type=int, default=1000, help="Number of episodes to run")
     parser.add_argument("--name", type=str, default='', help="Experiment name")
 
-    parser.add_argument("--ret", type=str, choices=['forward', 'both'], default='both',
-                        help='Type of return used for training, only forward-looking or also using accumulated rewards')
+    parser.add_argument("--ret", type=str, choices=['forward', 'both'], default='both', help='Type of return used for training, only forward-looking or also using accumulated rewards')
     parser.add_argument("--utility", type=str, help="Utility function, a function of r1 to rN")
-    parser.add_argument("--extra-state", type=str, choices=['none', 'timestep', 'accrued', 'both'], default='none',
-                        help='Additional information given to the agent, like the accrued reward')
+    parser.add_argument("--extra-state", type=str, choices=['none', 'timestep', 'accrued', 'both'], default='none', help='Additional information given to the agent, like the accrued reward')
     parser.add_argument("--hidden", default=50, type=int, help="Hidden neurons of the policy network")
     parser.add_argument("--lr", default=1e-3, type=float, help="Learning rate of the neural network")
 
     # Next and Sub from arguments
     args = parser.parse_args()
-
+    import time
+    
     # Instantiate learner
     learner = Learner(args)
-    # learner.model = self.make_network()
-
+    df = pd.DataFrame()
     # Learn
-    f = open('out-' + args.name, 'w')
-    loss_file = open('loss_file', 'w')
-
+    f = open('Experiment_Output', 'w')
+    start_time = datetime.time(datetime.now())
+    
     if args.monitor:
         learner._env.monitor.start('/tmp/monitor', force=True)
+    for run in range(num_runs): 
+        runData = []    
+        try:
+            #old_dt = datetime.datetime.now()
+            avg = np.zeros(shape=(learner._num_rewards,))
 
-    try:
-        old_dt = datetime.datetime.now()
-        avg = np.zeros(shape=(learner._num_rewards,))
+            for i in range(episodes):
+                rewards = learner.run()
 
-        for i in range(args.episodes):
-            rewards = learner.run()
-            # print("Episode ::", i,  file=f)
-            if i == 0:
-                avg = rewards
-            else:
-                avg = 0.99 * avg + 0.01 * rewards
+                if i == 0:
+                    avg = rewards
+                else:
+                    avg = 0.99 * avg + 0.01 * rewards
 
-                # decay epsilon
-            learner.epsilon = learner.epsilon * 0.9
-            if learner.epsilon < 0.001:
-                learner.epsilon = 0.001
+                #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
+                scalarized_avg = learner.scalarize_reward(avg)
 
-            scalarized_avg = learner.scalarize_reward(avg)
+                learner.epsilon = learner.epsilon * 0.9
+                if learner.epsilon < 0.1:
+                    learner.epsilon = 0.1
 
-            progress(i, args.episodes, status='Doing very long job')
 
-            print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
-            # print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, file = f )
-            # print(scalarized_avg, file = f)
+
+                if i % 100 == 0 and i > 0:
+                    r = (i/episodes) * 100
+                    time = datetime.time(datetime.now())
+                    time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
+
+                    print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", 
+                        scalarized_avg, file = f)
+                    f.flush()
+
+                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
+                runData.append(scalarized_avg)
+                #print("Run Data:", runData, file = f)
+                #f.flush()
+
+            #data = pd.DataFrame({"Run " + str(run) : runData})
+            #df = df.append(data)
+            df['Run ' + str(run)] = runData
+            #print("DataFrame:", df, file = f)
             f.flush()
 
-    except KeyboardInterrupt:
-        pass
 
-    if args.monitor:
-        learner._env.monitor.close()
+        except KeyboardInterrupt:
+            pass
 
-    f.close()
-
+        if args.monitor:
+            learner._env.monitor.close()
+    t = datetime.now()
+    #timestamp = time.strftime('%b-%d-%Y_%H-%M-%S', t)
+    df.to_csv(r'Experiments/Exp_MODistRL_TreeSearch_' + str(t) + '.csv')     
+        #f.close()
 
 if __name__ == '__main__':
     main()
