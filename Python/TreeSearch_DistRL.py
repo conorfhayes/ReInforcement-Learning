@@ -38,7 +38,7 @@ class Node():
 
     def __init__(self, env, action, state, id, cumulative_rewards, timestep, layer, file, _dict_, probability, parent,_all_):
 
-        self.simulations = 1
+        self.simulations = 0
         self.num_actions = 2
         
         self.debug_file = file
@@ -82,7 +82,7 @@ class Node():
     
 
     def simultation(self, state, action, cumulative_rewards, timestep, _dict_):
-        next_state, reward, timestep, self.done, __ = self.env.step(action, action, timestep)
+        next_state, reward, timestep, self.done, __ = self.env.step(state, action, timestep)
 
         probability = (_dict_[state][action][next_state][str(reward)]['count'] / _dict_[state][action][next_state][
             'count']) / self.num_actions
@@ -139,34 +139,44 @@ class Node():
         # Beginning of generation of the tree search algorithm
 
         else:
-            if self.parent == True:
-                _probability_, next_state, self.cumulative_rewards = self.simultation(self.action, self.action,
+            if self.parent == True and self.simulations == 0:
+                _probability_, next_state, cumulative_rewards = self.simultation(self.action, self.action,
                                                                                       self.cumulative_rewards,
                                                                                       timestep, _dict_)
-                state = next_state
+                self.state = next_state
                 self.probability = _probability_
+                self.cumulative_rewards = cumulative_rewards
 
             # timestep = self.timestep + 1
+            elif self.simulations > 0:
 
-            for action in range(self.num_actions):
-                if self.layer <= self.simulations:
-                    probability, next_state, cumulative_rewards = self.simultation(action, action,
-                                                                                   self.cumulative_rewards, timestep,
-                                                                                   _dict_)
-                    # self.create_children()
-                    # print("probability2 : ", probability, file = self.debug_file)
+                if self.parent == True:
+                    _probability_, next_state, cumulative_rewards = self.simultation(self.action, self.action,
+                                                                                          self.cumulative_rewards,
+                                                                                          timestep, _dict_)
+                    self.state = next_state
+                    self.probability = _probability_
+                    self.cumulative_rewards = cumulative_rewards
 
-                    if self.probability == 0:
-                        self.probability = probability
-                    else:
-                        self.probability = probability * self.probability
-                        self.state = next_state
-                        # print("Probability: ", self.probability,file = self.debug_file)
+                for action in range(self.num_actions):
+                    if self.layer <= self.simulations:
+                        probability, next_state, cumulative_rewards = self.simultation(action, action,
+                                                                                       self.cumulative_rewards, timestep,
+                                                                                       _dict_)
+                        # self.create_children()
+                        # print("probability2 : ", probability, file = self.debug_file)
 
-                if self.layer <= self.simulations and self.done == False:
-                    # self.cumulative_rewards =  self.simultation(self.action, self.cumulative_rewards, self.timestep)
-                    # print("Cumulative Reward : ", self.cumulative_rewards, file = self.debug_file)
-                    self.create_children(action, action, cumulative_rewards, _dict_, self.probability, self._all_)
+                        if self.probability == 0:
+                            self.probability = probability
+                        else:
+                            self.probability = probability * self.probability
+                            #state = next_state
+                            # print("Probability: ", self.probability,file = self.debug_file)
+
+                    if self.layer <= self.simulations and self.done == False:
+                        # self.cumulative_rewards =  self.simultation(self.action, self.cumulative_rewards, self.timestep)
+                        # print("Cumulative Reward : ", self.cumulative_rewards, file = self.debug_file)
+                        self.create_children(next_state, action, cumulative_rewards, _dict_, self.probability, self._all_)
 
         self.timestep = self.timestep + 1
 
@@ -181,6 +191,7 @@ class Learner(object):
         a = 2
         self.num_actions = 2
         self.num_timesteps = 200
+        self.random_action = 0
 
         self.dict = {}   
         #self.dict = {l0: [{l1: [{l2 : [{"count" : 0}] for l2 in range(2)}] for l1 in range(2)}] for l0 in range(2)}
@@ -405,10 +416,12 @@ class Learner(object):
 
 
     def run(self):
+        
 
         """ Execute an option on the environment
         """
         env_state = self._env.reset()
+        random_action = 0
 
         done = False
 
@@ -479,14 +492,15 @@ class Learner(object):
                 dictRewards = {}
                 d1 = {}
                 d2 = {}
-                _all_ = True
+                _all_ = False
+                action_selection = 0
                 
                 for i in range(self.num_actions):
                     dictResults.update({i : {}})
                     dictRewards.update({i : {}})
 
                 for _action_ in range(self.num_actions):                    
-                    a = self.rollOut(self._env, _action_, _action_, 0, cumulative_rewards, self.timestep, 0,
+                    a = self.rollOut(self._env, _action_, env_state, 0, cumulative_rewards, self.timestep, 0,
                                      self.debug_file, self.dict, True, _all_)
 
                     action_rewards.append(a[0])                        
@@ -504,37 +518,81 @@ class Learner(object):
                             
                             dictResults[_action_].update(d1)
                         else:
-                            dictResults[_action_].update({str(action_rewards[_action_][i]): action_prob[_action_][i]})
+                            dictResults[_action_].update({str(action_rewards[_action_][i]) : action_prob[_action_][i]})
 
                 chance = 0 
                 prob_chance = 0  
+                
 
                 for _action_ in range(2):
                     for reward in dictResults[_action_]:
+                    
                         scalarize_reward = self.scalarize_reward(cumulative_rewards)
-                        #print('Action Examined :: ', _action_, file = self.debug_file)
-                        #print('Dictionary Rewards', dictRewards[_action_], file=self.debug_file)
-                        #print('Potential Rewards', dictRewards[_action_].get(str(reward)), file=self.debug_file)
                         potential_reward = self.scalarize_reward(dictRewards[_action_].get(reward))
-                        #print('Potential Rewards2', potential_reward, file=self.debug_file)
                         utility = potential_reward - scalarize_reward
-                        #print('Utility ', utility, file=self.debug_file)
                         utility_chance = utility * dictResults[_action_].get(str(reward))
-                        prob = dictResults[_action_].get(str(reward))
-                        #print('Reward ', reward, file=self.debug_file)
-                        #print('Prob', prob, file=self.debug_file)
+                        prob = dictResults[_action_].get(str(reward))                        
 
-                        if utility_chance > chance:
-                            #if prob > prob_chance:
-                            chance = utility_chance
-                            prob_chance = prob
-                            #print('Chance ', chance, file=self.debug_file)
-                            #print('Prob Chance ', prob_chance, file=self.debug_file)
-                            #print('Action ', action, file=self.debug_file)
-                            action = _action_                        
+                        """
+                        #Debug File Output ::
+                        print('Cumulative Rewards :: ', cumulative_rewards, file = self.debug_file)
+                        print('Action Examined :: ', _action_, file = self.debug_file)
+                        print('Dictionary Rewards', dictRewards[_action_], file=self.debug_file)
+                        print('Potential Rewards', dictRewards[_action_].get(str(reward)), file=self.debug_file)
+                        print('Potential Rewards2', potential_reward, file=self.debug_file)
+                        print('Utility ', utility, file=self.debug_file)
+                        print('Reward ', reward, file=self.debug_file)
+                        print('Prob', prob, file=self.debug_file)
+
+                        """
+
+                        # Standard Action Selection Technique : 0
+                        if action_selection == 0:
+                            if utility_chance > chance:
+                                #if prob > prob_chance:
+                                chance = utility_chance
+                                prob_chance = prob                                
+                                action = _action_
+
+                        if action_selection == 1:
+                            if utility >= chance and prob > prob_chance:
+                                #if prob > prob_chance:
+                                chance = utility
+                                prob_chance = prob
+                                #print('Chance ', chance, file=self.debug_file)
+                                #print('Prob Chance ', prob_chance, file=self.debug_file)
+                                #print('Action ', action, file=self.debug_file)
+                                action = _action_  
+
+                        if action_selection == 2:
+                            if utility_chance >= chance:
+                                #if prob > prob_chance:
+                                chance = utility_chance
+                                prob_chance = prob                                
+                                action = _action_
+
+                        if action_selection == 3:
+                            if utility == 0:
+                                if prob > prob_chance:
+                                    prob_chance = prob
+                                    action = _action_
+                            if utility > chance and prob > prob_chance:
+                                chance = utility
+                                prob_chance = prob 
+                                action = _action_
+
+                        if action_selection == 4:
+                            val = potential_reward * prob
+                            if val > chance:
+                                chance = potential_reward * prob
+                                action = _action_
+
+
 
                 if action == -10:
-                    #print('Random Action', action, file=self.debug_file)
+                    random_action += 1
+                    #print('Random Action', random_action, file=self.debug_file)
+                    self.debug_file.flush()
                     action = random.randint(0, 1)
 
 
@@ -643,7 +701,7 @@ def main():
                 #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
                 scalarized_avg = learner.scalarize_reward(avg)
 
-                learner.epsilon = learner.epsilon * 0.9
+                learner.epsilon = learner.epsilon * 0.8
                 if learner.epsilon < 0.1:
                     learner.epsilon = 0.1
 
@@ -654,21 +712,20 @@ def main():
                     time = datetime.time(datetime.now())
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
 
-                    print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", 
-                        scalarized_avg, file = f)
-                    f.flush()
+                    #print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, file = f)
+                    #f.flush()
 
-                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
                 #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
                 runData.append(scalarized_avg)
                 #print("Run Data:", runData, file = f)
-                #f.flush()
+                f.flush()
 
             #data = pd.DataFrame({"Run " + str(run) : runData})
             #df = df.append(data)
             df['Run ' + str(run)] = runData
             #print("DataFrame:", df, file = f)
-            f.flush()
+            #f.flush()
 
 
         except KeyboardInterrupt:
