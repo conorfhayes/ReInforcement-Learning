@@ -653,7 +653,7 @@ def progress(count, total, status=''):
 
 def main():
     # Parse parameters
-    num_runs = 1
+    num_runs = 10
     episodes = 10000
     
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
@@ -676,7 +676,7 @@ def main():
     import time
     
     # Instantiate learner
-    learner = Learner(args)
+    #learner = Learner(args)
     df = pd.DataFrame()
     # Learn
     f = open('Experiment_Output', 'w')
@@ -686,6 +686,7 @@ def main():
         learner._env.monitor.start('/tmp/monitor', force=True)
     for run in range(num_runs): 
         runData = []    
+        learner = Learner(args)
         try:
             #old_dt = datetime.datetime.now()
             avg = np.zeros(shape=(learner._num_rewards,))
@@ -707,19 +708,19 @@ def main():
 
 
 
-                if i % 100 == 0 and i > 0:
+                if i % 100 == 0 and i >= 0:
                     r = (i/episodes) * 100
                     time = datetime.time(datetime.now())
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
 
-                    #print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, file = f)
-                    #f.flush()
+                    print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, file = f)
+                    f.flush()
 
-                print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
                 #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
                 runData.append(scalarized_avg)
                 #print("Run Data:", runData, file = f)
-                f.flush()
+                #f.flush()
 
             #data = pd.DataFrame({"Run " + str(run) : runData})
             #df = df.append(data)
