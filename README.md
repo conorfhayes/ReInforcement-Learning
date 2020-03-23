@@ -1,4 +1,4 @@
-# ReInforcement Learning   
+# Reinforcement Learning   
 
 This folder contains code to implement Reinforcement Learning (RL) agents. The agents included learning using Thresholded Lexicographic ordering action selection algorithm with Q-learning and standard Q-Learning. The code provided implments the the Dynamic Economic Dispatch Domain enivronment. This code uses multiple agents to optimise the cost, emissions and violations functions. 
 
