@@ -1,0 +1,1 @@
+python3 Node_DistRL.py --name fishwood-hidden50-lr0.001-forwardreturn-extranone-1 --env FishWood-v0 --episodes 10000 --avg 10 --hidden 50 --lr 0.001 --ret forward --extra-state none --utility "min(r1, r2 // 2)" > /dev/null
