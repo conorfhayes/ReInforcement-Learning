@@ -24,7 +24,7 @@ register(
     id='RandomMOMDP-v0',
     entry_point='randommomdp:RandomMOMDP',
     reward_threshold=0.0,
-    kwargs={'nstates': 100, 'nobjectives': 4, 'nactions': 8, 'nsuccessor': 12, 'seed': 1}
+    kwargs={'nstates': 100, 'nobjectives': 4, 'nactions': 8, 'nsuccessor': 12, 'seed': 1, 'nrewards': 2}
 )
 register(
     id='FishWood-v0',
@@ -44,7 +44,7 @@ class Node():
         self.action = action
         self.probability = probability
         self.cumulative_rewards = cumulative_rewards
-        self.state = state
+        self.state = self.action
         
         self.debug_file = file
         self.children = []
@@ -52,7 +52,7 @@ class Node():
         self.layer = layer + 1
         self.env = env
         self.unique_id = self.layer + 1
-        self.num_actions = 2
+        
         
         self.action = action
         self.times_visited = 0
@@ -84,6 +84,21 @@ class Node():
         self.unique_id += 1
 
         return node
+
+
+    def getProbability(self, state, action, reward, timestep, _dict_):
+        #next_state, reward, timestep, self.done, __ = self.env.step(state, action, timestep)
+
+        #probability = (_dict_[state][action][next_state][str(reward)]['count'] / _dict_[state][action][next_state][
+        #    'count'])/ self.num_actions
+
+        probability = (_dict_[state][action][action][str(reward)]['count'] / _dict_[state][action][action][
+            'count']) / self.num_actions
+
+
+        #self.reward = reward
+
+        return probability 
     
 
 
@@ -91,7 +106,10 @@ class Node():
         next_state, reward, timestep, self.done, __ = self.env.step(state, action, timestep)
 
         probability = (_dict_[state][action][next_state][str(reward)]['count'] / _dict_[state][action][next_state][
-            'count']) / self.num_actions
+            'count'])/ self.num_actions
+
+        #probability = (_dict_[state][action][str(reward)]['count'] / _dict_[state][action][
+        #    'count']) / self.num_actions
 
 
         self.reward = reward
@@ -107,6 +125,8 @@ class Node():
         #print("Tree " , tree[0].children, file = self.debug_file)
 
         return tree
+
+
 
     def push(self,tree, cumulative_rewards, timestep, _dict_, probability, action):
 
@@ -154,45 +174,74 @@ class Node():
 
         return rewards, probabilities
 
+
+    def _push_(self,tree, cumulative_rewards, timestep, _dict_, probability, action):
+
+        self.cumulative_rewards = cumulative_rewards
+        self.timestep = timestep  
+        self.probability = probability
+        self.action = action
+        rewards = []
+        probabilities = []
+
+        def _push(node):                                   
+
+            if len(node.children) == 0:              
+                
+                rewards.append(node.cumulative_rewards)
+                probabilities.append(node.probability)
+            
+            else:  
+                  
+                for child in node.children:
+                    _push(child)                    
+
+        _push(tree)
+
+        return rewards, probabilities
+
+
+
+
     def _run_(self, state, _dict_, probability, _all_):
         timestep = self.timestep
         
-       
+        self.state = state
         if _all_ == True:
 
             if self.parent is True:                
-                for reward in self.rewardprobs[self.action]: 
+ 
+                for reward in _dict_[self.state][self.action][self.action]:
 
-                    self.probability = self.rewardprobs[self.action].get(str(reward))
-                    cumulative_rewards = self.cumulative_rewards + self.rewards[self.action].get(str(reward))                   
+                    if reward == 'count':
+                        pass
+                    else:                        
+                        _reward_ = _dict_[self.state][self.action][self.action][reward]['reward']
 
-                    for action in range(self.num_actions):
-                        for reward in self.rewardprobs[action]:
-                            if self.layer <= self.simulations:
-                                cumulative_rewards1 = cumulative_rewards + self.rewards[action].get(str(reward))
-                                probability = self.rewardprobs[action].get(reward)
 
-                                if self.probability == 0:
-                                    self.probability = probability
-                                else:
-                                    probability = probability * self.probability
+                        probability = self.getProbability(self.state, self.action, _reward_, timestep, _dict_)
+                        cumulative_rewards = self.cumulative_rewards + _reward_ 
+                        
 
-                            if self.layer <= self.simulations and self.timestep <= 200:
-                                self.create_children(action, action, cumulative_rewards1, _dict_, probability, _all_)
+                        self.create_children(self.state, self.action, cumulative_rewards, _dict_, probability, _all_)              
+                        
 
-            else:
+            if self.simulations > 0:
                 for action in range(self.num_actions):
-                    for reward in self.rewardprobs[action]:
+                    
+                    for reward in _dict_[state][action][action]:
+                        
+                        _reward_ = _dict_[state][action][action][reward]['reward']
                         if self.layer <= self.simulations:
-                            cumulative_rewards = self.cumulative_rewards + self.rewards[action].get(str(reward))
-                            probability = self.rewardprobs[action].get(reward)
+                            cumulative_rewards = self.cumulative_rewards + _reward_
+                            probability = self.getProbability(state, action, _reward_, timestep, _dict_)
 
                             if self.probability == 0:
                                 self.probability = probability
                             else:
                                 self.probability = probability * self.probability
 
-                        if self.layer <= self.simulations and self.done == False:
+                        if self.layer <= self.simulations and timestep <= 200:
                             self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
 
         # Beginning of generation of the tree search algorithm
@@ -202,14 +251,14 @@ class Node():
                 _probability_, next_state, cumulative_rewards = self.simultation(self.action, self.action,
                                                                                       self.cumulative_rewards,
                                                                                       timestep, _dict_)
-                self.state = next_state
+               
                 self.probability = _probability_
                 #print("Action", self.action, file = self.debug_file)
                 #print("Cumulative Rewards ::", self.cumulative_rewards, file = self.debug_file)
                 self.cumulative_rewards = cumulative_rewards
 
                 #self.create_children(self.action, self.action, self.cumulative_rewards, _dict_, self.probability, self._all_)
-
+                #state = next_state
             # timestep = self.timestep + 1
             if self.simulations > 0:
 
@@ -225,7 +274,7 @@ class Node():
                     if self.layer <= self.simulations and self.done == False:
                         # self.cumulative_rewards =  self.simultation(self.action, self.cumulative_rewards, self.timestep)
                         # print("Cumulative Reward : ", self.cumulative_rewards, file = self.debug_file)
-                        self.create_children(next_state, action, cumulative_rewards, _dict_, self.probability, self._all_)
+                        self.create_children(action, action, cumulative_rewards, _dict_, self.probability, self._all_)
 
         self.timestep = self.timestep + 1
 
@@ -242,7 +291,7 @@ class Learner(object):
         a = 2
         self.num_actions = 2
         self.num_timesteps = 200
-        self.random_action = 0
+        #self.random_action = 0
         self._treedict_ = {}
         self.dict = {}           
 
@@ -250,18 +299,16 @@ class Learner(object):
             self.dict.update({i : {}}) 
             self._treedict_.update({i : {}})             
             for j in range(a):
-                self.dict[i].update({j : {}})                            
+                self.dict[i].update({j : {}})  
+                #self.dict[i].update({j : {'count' : 0}}) 
+                self._treedict_[i].update({j : {}})                         
                 for k in range(s):
                     self.dict[i][j].update({k : {'count' : 0}})
 
            
 
         # Make environment
-        self.debug_file = open('debug', 'w')
-        self.action_true = [0, 0, 0, 0, 0, 0, 0, 0]
-        # self.action_taken = [100][8]
-
-        #print("Test Self Instantiate ::", self.dict, file= self.debug_file)   
+        self.debug_file = open('debug', 'w')  
 
         self.epsilon = 1.0
 
@@ -289,15 +336,24 @@ class Learner(object):
         else:
             self._utility = None
 
-        # Build network
         
 
-        # print('Number of primitive actions:', self._num_actions)
-        # print('Number of state variables', self._actual_state_vars)
-        # print('Number of objectives', self._num_rewards)
+    def getResults(self, tree):
 
-        # Lists for policy gradient
-        self._experiences = []
+        dist_rewards = []
+        dist_prob = []
+
+        def _getResults(tree):
+            if len(tree.children) == 0:
+                dist_rewards.append(tree.cumulative_rewards)
+                dist_prob.append(tree.probability)
+
+            for n in range(len(tree.children)):
+                _getResults(tree.children[n])
+
+        _getResults(tree)
+
+        return dist_rewards, dist_prob
     
 
     def rollOut(self, env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, parent, _all_):
@@ -306,25 +362,56 @@ class Learner(object):
 
         _rewards_ = []
         _probs_ = []
+
+        #cr = str(cumulative_rewards)
         
-        if action in self._treedict_[state]:
-            _tree_ = self._treedict_[state].get(action)
+        #if cr in self._treedict_[state][action]:
+        if _all_ == False:
+            if action in self._treedict_[state]:
+                #_tree_ = self._treedict_[state][action][cr]
+                _tree_ = self._treedict_[state][action]
+                retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
+                
+                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)  
+                #retNode = self.getResults(_tree_)
+                #print("Tree Dictionary ::", self._treedict_[state][action], file = self.debug_file)
 
-        else:  
+            else:  
+                tree = Node(env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, 0, parent, _all_)
+                _tree_ = tree.createTree(state, _dict_, 0, _all_ )             
+                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)   
+                #self._treedict_[state][action].update({cr : _tree_}) 
+                self._treedict_[state].update({action : _tree_}) 
+                retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
 
-            tree = Node(env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, 0, parent, _all_)
-            #(state, _dict_, probability, _all_
-            _tree_ = tree.createTree(state, _dict_, 0, _all_ )
-            self._treedict_[state].update({action : _tree_})     
-    
+        if _all_ == True:
+            cr = str(cumulative_rewards)
+            if cr in self._treedict_[state][action]:
+            #if action in self._treedict_[state]:
+                #_tree_ = self._treedict_[state][action][cr]
+                _tree_ = self._treedict_[state][action][cr]
+                retNode = _tree_._push_(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
+                
+                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)  
+                #retNode = self.getResults(_tree_)
+                #print("Tree Dictionary ::", self._treedict_[state][action], file = self.debug_file)
+
+            else:  
+                tree = Node(env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, 0, parent, _all_)
+                _tree_ = tree.createTree(state, _dict_, 0, _all_ )             
+                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)   
+                self._treedict_[state][action].update({cr : _tree_}) 
+                retNode = _tree_._push_(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
+                #self._treedict_[state].update({action : _tree_}) 
+
                     
-        retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
-
+        
+        
         _rewards_ = retNode[0] + _rewards_
         _probs_ = retNode[1] + _probs_      
 
-        #print("Rewards :", _rewards_, file = self.debug_file)
-        #print("Probs :", _probs_, file = self.debug_file) 
+        print("Rewards :", _rewards_, file = self.debug_file)
+        print("Probs :", _probs_, file = self.debug_file) 
 
         return _rewards_, _probs_
 
@@ -371,11 +458,16 @@ class Learner(object):
     
 
     def updateDictionary(self, env_state, action, new_env_state, rewards, _dict_):
+
+        _rewards_ = str(rewards)
         
-        if str(rewards) not in _dict_[env_state][action][new_env_state]:
-            _dict_[env_state][action][new_env_state].update({str(rewards): {'count': 0}})
+        if _rewards_ not in _dict_[env_state][action][new_env_state]:
+            _dict_[env_state][action][new_env_state].update({_rewards_: {'count': 0, 'reward': rewards}})
         
-       
+        #if _rewards_ not in _dict_[env_state][action]:
+        #    _dict_[env_state][action].update({_rewards_: {'count': 0, 'reward': rewards}})
+        
+
         return _dict_
 
     def run(self):
@@ -395,6 +487,10 @@ class Learner(object):
         action = -10        
         self.timestep = 0       
         new_env_state = -1
+
+        _all_ = True
+        action_selection = 0 
+        self.num_actions = 2
         
 
         while not done:
@@ -402,16 +498,13 @@ class Learner(object):
             state = env_state            
             check = random.uniform(0, 1)
 
-
+            #print(self.epsilon, file = self.debug_file)
             if check < self.epsilon:
                 # select random action
-                action = random.randint(0, 1)
+                action = random.randint(0, self.num_actions - 1)
             #    print("Random Action : " , action , file = self.debug_file)
             else:
 
-                
-                _all_ = False
-                action_selection = 0               
                 action_rewards = []
                 action_prob = []
 
@@ -420,12 +513,13 @@ class Learner(object):
                     a = self.rollOut(self._env, _action_, env_state, 0, cumulative_rewards, self.timestep, 0,
                                      self.debug_file, self.dict, True, _all_)                                     
                     action_rewards.append(a[0])                        
-                    action_prob.append(a[1])                    
+                    action_prob.append(a[1])    
+
 
                 chance = 0 
                 prob_chance = 0                  
 
-                for _action_ in range(2):
+                for _action_ in range(self.num_actions):
                     #print("Here::", file = self.debug_file)
                     #for reward in dictResults[_action_]:
                     a = 0
@@ -448,10 +542,7 @@ class Learner(object):
                         print('Utility Chance ', utility_chance, file=self.debug_file)
                         print('Reward ', reward, file=self.debug_file)
                         print('Prob', prob, file=self.debug_file)
-                        """
-                        
-
-                        
+                        """                      
 
                         # Standard Action Selection Technique : 0
                         if action_selection == 0:
@@ -499,22 +590,10 @@ class Learner(object):
 
 
                 if action == -10:
-                    #print('Random Action', file=self.debug_file)
+                    print('Random Action', file=self.debug_file)
                     self.debug_file.flush()
                     action = random.randint(0, 1)
 
-
-
-                #print('Cumulative Rewards', cumulative_rewards, file=self.debug_file)
-                #print("Dictionary Action 0 :: ", dictResults[0], file=self.debug_file)
-                #print("Dictionary Action 1 :: ", dictResults[1], file=self.debug_file)
-                #print("Action Selected :: ", action, file=self.debug_file)
-                #print("Action Reward :: ", action_rewards, file=self.debug_file)
-                #print("Action Prob :: ", action_prob, file=self.debug_file)
-
-                #self.graph(dictResults[0])
-            
-            #action = random.randint(0, 1)
             if len(self._aspace) > 1:
                 # Choose each of the factored action depending on the composite action
                 actions = [0] * len(self._aspace)
@@ -534,11 +613,15 @@ class Learner(object):
 
             cumulative_rewards += rewards
             
+            
             self.dict = self.updateDictionary(env_state, action, new_env_state, rewards, self.dict)
             
-
             self.dict[env_state][action][new_env_state]['count'] += 1
             self.dict[env_state][action][new_env_state][str(rewards)]['count'] += 1
+
+            #print("Action 0 Reward :", self.dict[0][0][new_env_state], file = self.debug_file)
+            #self.dict[env_state][action]['count'] += 1
+            #self.dict[env_state][action][str(rewards)]['count'] += 1
 
             
             env_state = new_env_state
@@ -600,9 +683,12 @@ def main():
                 #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
                 scalarized_avg = learner.scalarize_reward(avg)
 
-                learner.epsilon = learner.epsilon * 0.8
-                if learner.epsilon < 0.1:
-                    learner.epsilon = 0.1
+                if i < 0:
+                    learner.epsilon = 1.0
+                else:
+                    learner.epsilon = learner.epsilon * 0.99
+                    if learner.epsilon < 0.1:
+                        learner.epsilon = 0.1
 
 
 
@@ -614,7 +700,7 @@ def main():
                     print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, file = f)
                     f.flush()
 
-                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
                 #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
                 runData.append(scalarized_avg)
                 #print("Run Data:", runData, file = f)
