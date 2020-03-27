@@ -211,19 +211,19 @@ class Node():
 
             if self.parent is True:                
  
-                for reward in _dict_[self.state][self.action][self.action]:
+                for reward in _dict_[self.action][self.action][self.action]:
 
                     if reward == 'count':
                         pass
                     else:                        
-                        _reward_ = _dict_[self.state][self.action][self.action][reward]['reward']
+                        _reward_ = _dict_[self.action][self.action][self.action][reward]['reward']
 
 
-                        probability = self.getProbability(self.state, self.action, _reward_, timestep, _dict_)
+                        probability = self.getProbability(self.action, self.action, _reward_, timestep, _dict_)
                         cumulative_rewards = self.cumulative_rewards + _reward_ 
                         
 
-                        self.create_children(self.state, self.action, cumulative_rewards, _dict_, probability, _all_)              
+                        self.create_children(self.action, self.action, cumulative_rewards, _dict_, probability, _all_)              
                         
 
             if self.simulations > 0:
@@ -410,8 +410,8 @@ class Learner(object):
         _rewards_ = retNode[0] + _rewards_
         _probs_ = retNode[1] + _probs_      
 
-        print("Rewards :", _rewards_, file = self.debug_file)
-        print("Probs :", _probs_, file = self.debug_file) 
+        #print("Rewards :", _rewards_, file = self.debug_file)
+        #print("Probs :", _probs_, file = self.debug_file) 
 
         return _rewards_, _probs_
 
@@ -619,7 +619,8 @@ class Learner(object):
             self.dict[env_state][action][new_env_state]['count'] += 1
             self.dict[env_state][action][new_env_state][str(rewards)]['count'] += 1
 
-            #print("Action 0 Reward :", self.dict[0][0][new_env_state], file = self.debug_file)
+            #print("Action 1 Reward :", self.dict[1][1][1], file = self.debug_file)
+            #print("Action 0 Reward :", self.dict[0][0][0], file = self.debug_file)
             #self.dict[env_state][action]['count'] += 1
             #self.dict[env_state][action][str(rewards)]['count'] += 1
 
