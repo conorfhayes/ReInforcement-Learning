@@ -44,7 +44,7 @@ class Node():
 
     def __init__(self, env, action, state, id, cumulative_rewards, timestep, layer, file, _dict_, probability, parent,_all_, row, col, done):
 
-        self.simulations = 2
+        self.simulations = 4
         self.num_actions = 4
 
         self.action = action
@@ -149,16 +149,8 @@ class Node():
 
         def _push(node, action, cumulative_rewards, timestep, _dict_, probability, row, col): 
 
-            #self.cumulative_rewards = cumulative_rewards
-            #self.probability = probability
-            #self.row = row
-            #self.col = col
-            #self.action = action
-            done = node.done
-
-                        
-            #if node.parent == True:
             
+            done = node.done
 
             _probability_, next_state, cumulative_rewards, row, col = node.simultation(node.state, action, cumulative_rewards,timestep,_dict_, row, col) 
 
@@ -187,9 +179,7 @@ class Node():
                     probabilities.append(node.probability)
 
 
-                a += 1
-
-            
+                a += 1            
                        
 
             if len(node.children) == 0:            
@@ -470,6 +460,65 @@ class Learner(object):
 
         return index
 
+    def compare(self, a, b, thresholds):
+        #print(a, file = self.debug_file)
+
+        for i in range(len(thresholds)):
+
+            thresholdA = min(a[i], thresholds[i])
+            thresholdB = min(b[i], thresholds[i])
+
+            if thresholdA > thresholdB:
+                return 1
+
+            elif thresholdA < thresholdB:
+                return -1
+
+        if a[len(thresholds) - 1] > b[len(thresholds) - 1]:
+            return 1
+
+        elif a[len(thresholds) - 1] < b[len(thresholds) - 1]:
+            return -1
+
+        for i in range(len(thresholds)):
+            if a[i] > b[i]:
+                return 1
+            elif a[i] < b[i]:
+                return -1
+
+        return 0
+
+    def selectTLOAction(self, actionValues, actionProb, thresholds):
+        bestActions = []
+        bestProbs = []
+
+        bestActions.append(0)
+
+        
+        for a in range(len(actionValues)):
+            #print(bestActions, file = self.debug_file)
+            compareResult = self.compare(actionValues[a], actionValues[bestActions[0]], thresholds)
+
+            if compareResult > 0:
+                bestActions.clear()
+                bestActions.append(a)
+                bestProbs.clear()
+                bestProbs.append(actionProb[a])
+
+            elif compareResult == 0:
+                bestActions.append(a)
+                bestProbs.append(a)
+
+        if len(bestActions) > 1:
+
+            index = bestProbs.index(max(bestProbs))
+            return bestActions[index]
+
+        else:
+
+            return bestActions[0]
+
+
     def encode_reward(self, reward):
         """ Encode a scalar or vector reward as an array
         """
@@ -521,7 +570,7 @@ class Learner(object):
         new_env_state = -1
 
         _all_ = False
-        action_selection = 0 
+        action_selection = "TLO"
         self.num_actions = 4
         #self.row = 0
         #self.col = 0
@@ -554,80 +603,101 @@ class Learner(object):
                 chance = -1000000 
                 prob_chance = 0                  
 
-                for _action_ in range(self.num_actions):
-                    #print("Here::", file = self.debug_file)
-                    #for reward in dictResults[_action_]:
-                    a = 0
-                    for reward in action_rewards[_action_]:
-                    
-                        scalarize_reward = self.scalarize_reward(cumulative_rewards)                        
-                        potential_reward = self.scalarize_reward(reward)
-                        utility = potential_reward - scalarize_reward
+                
 
-                        prob = action_prob[_action_][a]      
-                        utility_chance = utility * prob                 
+                if action_selection == "TLO":
+                    thresholds = [3, -5]
+                    actionVectors = []
+                    actionProbs = []
+                    for _action_ in range(self.num_actions):
+                        #print("Check ::", action_rewards[_action_], file = self.debug_file)
+                        actionVector = self.selectTLOAction(action_rewards[_action_], action_prob[_action_], thresholds)
+                        #print("Action Vector ::", actionVector, file = self.debug_file)
+                        actionVectors.append(action_rewards[_action_][actionVector])
+                        actionProbs.append(action_prob[_action_][actionVector])
 
-                        """
-                        #Debug File Output ::
-                        print('Cumulative Rewards :: ', cumulative_rewards, file = self.debug_file)
-                        print('Potential Reward :: ', reward, file = self.debug_file)
-                        print('Action Examined :: ', _action_, file = self.debug_file)
-                        print('Scalarize Rewards', scalarize_reward, file=self.debug_file)
+                    #for _action_ in range(self.num_actions):
+                    action = self.selectTLOAction(actionVectors, actionProbs, thresholds)
+
+
+
+
+                else: 
+                    for _action_ in range(self.num_actions):                   
+                        a = 0
+                        for reward in action_rewards[_action_]:
                         
-                        print('Potential Rewards', potential_reward, file=self.debug_file)
-                        print('Utility ', utility, file=self.debug_file)
-                        print('Utility Chance ', utility_chance, file=self.debug_file)
-                        print('Reward ', reward, file=self.debug_file)
-                        print('Prob', prob, file=self.debug_file)
-                        print("Row : ", self.row, file = self.debug_file)
-                        print("Col : ", self.col, file = self.debug_file)
-                        print(" ", file = self.debug_file)
-                        """
-                        
-                                            
+                            scalarize_reward = self.scalarize_reward(cumulative_rewards)                        
+                            potential_reward = self.scalarize_reward(reward)
+                            utility = potential_reward - scalarize_reward
 
-                        # Standard Action Selection Technique : 0
-                        if action_selection == 0:
-                            if utility_chance < chance:
-                                #if prob > prob_chance:
-                                chance = utility_chance
-                                prob_chance = prob                                
-                                action = _action_
+                            prob = action_prob[_action_][a]      
+                            utility_chance = utility * prob                 
 
-                        if action_selection == 1:
-                            if utility >= chance and prob > prob_chance:
-                                #if prob > prob_chance:
-                                chance = utility
-                                prob_chance = prob
-                                #print('Chance ', chance, file=self.debug_file)
-                                #print('Prob Chance ', prob_chance, file=self.debug_file)
-                                #print('Action ', action, file=self.debug_file)
-                                action = _action_  
+                            """
+                            #Debug File Output ::
+                            print('Cumulative Rewards :: ', cumulative_rewards, file = self.debug_file)
+                            print('Potential Reward :: ', reward, file = self.debug_file)
+                            print('Action Examined :: ', _action_, file = self.debug_file)
+                            print('Scalarize Rewards', scalarize_reward, file=self.debug_file)
+                            
+                            print('Potential Rewards', potential_reward, file=self.debug_file)
+                            print('Utility ', utility, file=self.debug_file)
+                            print('Utility Chance ', utility_chance, file=self.debug_file)
+                            print('Reward ', reward, file=self.debug_file)
+                            print('Prob', prob, file=self.debug_file)
+                            print("Row : ", self.row, file = self.debug_file)
+                            print("Col : ", self.col, file = self.debug_file)
+                            print(" ", file = self.debug_file)
+                            """
+                            
+                                                
 
-                        if action_selection == 2:
-                            if utility_chance >= chance:
-                                #if prob > prob_chance:
-                                chance = utility_chance
-                                prob_chance = prob                                
-                                action = _action_
-
-                        if action_selection == 3:
-                            if utility == 0:
-                                if prob > prob_chance:
-                                    prob_chance = prob
+                            # Standard Action Selection Technique : 0
+                            if action_selection == 0:
+                                if utility_chance < chance:
+                                    #if prob > prob_chance:
+                                    chance = utility_chance
+                                    prob_chance = prob                                
                                     action = _action_
-                            if utility > chance and prob > prob_chance:
-                                chance = utility
-                                prob_chance = prob 
-                                action = _action_
 
-                        if action_selection == 4:
-                            val = potential_reward * prob
-                            if val > chance:
-                                chance = potential_reward * prob
-                                action = _action_
+                            if action_selection == 1:
+                                if utility >= chance and prob > prob_chance:
+                                    #if prob > prob_chance:
+                                    chance = utility
+                                    prob_chance = prob
+                                    #print('Chance ', chance, file=self.debug_file)
+                                    #print('Prob Chance ', prob_chance, file=self.debug_file)
+                                    #print('Action ', action, file=self.debug_file)
+                                    action = _action_  
 
-                        a += 1
+                            if action_selection == 2:
+                                if utility_chance >= chance:
+                                    #if prob > prob_chance:
+                                    chance = utility_chance
+                                    prob_chance = prob                                
+                                    action = _action_
+
+                            if action_selection == 3:
+                                if utility == 0:
+                                    if prob > prob_chance:
+                                        prob_chance = prob
+                                        action = _action_
+                                if utility > chance and prob > prob_chance:
+                                    chance = utility
+                                    prob_chance = prob 
+                                    action = _action_
+
+                            if action_selection == 4:
+                                val = potential_reward * prob
+                                if val > chance:
+                                    chance = potential_reward * prob
+                                    action = _action_
+
+                            
+                                
+
+                            a += 1
 
 
 
@@ -735,8 +805,8 @@ def main():
                     learner.epsilon = 1.0
                 else:
                     learner.epsilon = learner.epsilon * 0.99
-                    if learner.epsilon < 0.1:
-                        learner.epsilon = 0.1
+                    if learner.epsilon < 0.001:
+                        learner.epsilon = 0.001
 
 
 
