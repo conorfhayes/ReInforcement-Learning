@@ -8,7 +8,7 @@ from gym.utils import seeding
 import random
 import sys
 
-class DeepSeaTreasure(gym.Env):
+class DeepSeaTreasureDanger(gym.Env):
     
 
     def __init__(self):
