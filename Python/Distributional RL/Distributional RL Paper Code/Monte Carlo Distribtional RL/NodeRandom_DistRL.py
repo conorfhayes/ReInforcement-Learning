@@ -82,7 +82,7 @@ class Tree:
                 return
             
             elif len(node.children) > 0 and node.done == False:                    
-                v = 100000000000000
+                v = sys.maxsize
                 for nodes in node.children:                    
                     if nodes.timesVisted < v:
                         v = nodes.timesVisted
@@ -95,7 +95,7 @@ class Tree:
                 return  
             
 
-        while start < 8:
+        while start < 4:
             chance = random.randint(0, 1)
             node = self.root
 
@@ -105,7 +105,7 @@ class Tree:
                 select(_node_)
 
             else:
-                v = 100000000000000
+                v = sys.maxsize
                 for nodes in node.children:
                     
                     if nodes.timesVisted < v:
@@ -153,6 +153,7 @@ class Tree:
             cumulative_reward += node.reward
             probability = node.probability
             self.backPropogation(node, cumulative_reward, probability)
+            pass
 
         else:
 
@@ -163,9 +164,9 @@ class Tree:
                 next_state, reward, done, next_row, next_col, __ = self.env.step(state, action, row, col)
                 cumulative_reward += reward
                 if a == 0:
-                    prob = 1 / self.num_actions
+                    prob = node.probability
                 else:
-                    prob = prob * (1 / self.num_actions)
+                    prob = prob * node.probability
 
                 #print("Prob :", prob, file = self.file)
                 state = next_state
@@ -176,9 +177,8 @@ class Tree:
 
                 time += 1
                 a += 1
-                
+                                
             cumulative_reward += node.reward
-            #print("Print Node Reward :", node.reward, file = self.file)
             probability = prob * node.probability
 
             self.backPropogation(node, cumulative_reward, probability)
@@ -189,6 +189,7 @@ class Tree:
     def backPropogation(self, node, cumulative_reward, probability):
         
         a = 0      
+        #print("backPropogation probability ::", probability, file = self.file)
 
         if node.parent == "Null":
 
@@ -197,9 +198,9 @@ class Tree:
 
         else:
 
-            node.rewards.append(cumulative_reward)
-            node.probabilities.append(probability)
-            node = node.parent
+            #node.rewards.append(cumulative_reward)
+            #node.probabilities.append(probability)
+            #node = node.parent
 
             while a == 0:
                 cumulative_reward = cumulative_reward + node.reward
@@ -242,21 +243,21 @@ class Tree:
             childrenRewards = [[] for x in range(4)]
             childrenProbabilities = [[] for x in range(4)]          
 
-            if node.done == True:
-                childrenRewards[node.action].append(node.reward)
-                childrenProbabilities[node.action].append(node.probability)
+            #if node.done == True:
+            #    childrenRewards[node.action].append(node.reward)
+            #    childrenProbabilities[node.action].append(node.probability)
 
-            else:
+            #else:
                 #print("Number of Children :", len(node.children), file = self.file)
-                for node in node.children:
+            for node in node.children:
 
-                    if node.done == True:
-                        childrenRewards[node.action].append(node.reward)
-                        childrenProbabilities[node.action].append(node.probability)
+                if node.done == True:
+                    childrenRewards[node.action].append(node.reward)
+                    childrenProbabilities[node.action].append(node.probability)
 
 
-                    childrenRewards[node.action].extend(node.rewards)
-                    childrenProbabilities[node.action].append(node.probabilities) 
+                childrenRewards[node.action].extend(node.rewards)
+                childrenProbabilities[node.action].append(node.probabilities) 
 
             return self, childrenRewards, childrenProbabilities
         
@@ -290,7 +291,7 @@ class Tree:
             self.CR += [0, -1]
 
             if node.done == True:
-                self.backPropogation(node, reward, node.probability)
+                #self.backPropogation(node, reward, node.probability)
                 self.reset()
 
         else:
@@ -311,12 +312,12 @@ class Tree:
                 if flag == 0:     
                     #print("Here 2", file = self.file)                       
                     _node_ = node.createChild(node, next_state, action, next_rol, next_col, reward, done, True)
-                    self.backPropogation(node, reward, 0.25)
+                    #self.backPropogation(node, reward, _node_.probability)
                     self.root = _node_
 
                 if done == True:
                     #print("Terminal Reward ::", node.reward, file = self.file)
-                    self.backPropogation(node, reward, node.probability)
+                    #self.backPropogation(node, reward, node.probability)
                     self.reset()
 
                 
@@ -327,7 +328,7 @@ class Tree:
 
                 self.reset()
 
-        return
+        return reward
 
 
 
@@ -633,10 +634,31 @@ class Learner(object):
             print("State ", env_state, file = self.debug_file)
             print("Row :", self.row, " Col :", self.col, file = self.debug_file)
             print("Rewards Action 0:: ", testReward[0], file = self.debug_file)
-            print("Rewards Prob 0:: ", sum(testProbs[0][0]), file = self.debug_file)
+            print("Rewards Prob 0:: ", testProbs[0][0], file = self.debug_file)
+
+            if len(testProbs[0][0]) > 1:
+                print("Rewards Prob 0:: ", sum(testProbs[0][0]), file = self.debug_file)
+            else:
+                print("Rewards Prob 0:: ", testProbs[0][0], file = self.debug_file)
+            """
             print("Rewards Action 1:: ", testReward[1], file = self.debug_file)
+            if len(testProbs[1][0]) > 1:
+                print("Rewards Prob 1 : ", sum(testProbs[1][0]), file = self.debug_file)
+            else:
+                print("Rewards Prob 1 : ", testProbs[1][0], file = self.debug_file)
+            
+            """
             print("Rewards Action 2:: ", testReward[2], file = self.debug_file)
+           
+            print("Rewards Prob 2:: ", testProbs[2][0], file = self.debug_file)
+            """
+
             print("Rewards Action 3:: ", testReward[3], file = self.debug_file)
+            if len(testProbs[3][0]) > 1:
+                print("Rewards Prob 3:: ", sum(testProbs[3][0]), file = self.debug_file)
+            else:
+                print("Rewards Prob 3:: ", testProbs[3][0], file = self.debug_file)
+            """
                         
             
 
@@ -661,7 +683,7 @@ class Learner(object):
                 new_env_state, rewards, self.done, self.row, self.col, __ = self._env.step(env_state, action, self.row, self.col)
 
             
-            self.tree.takeAction(action)
+            rewards = self.tree.takeAction(action)
 
             
 
