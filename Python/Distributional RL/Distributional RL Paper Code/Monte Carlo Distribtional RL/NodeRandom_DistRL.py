@@ -369,34 +369,6 @@ class Node:
 
         return probability
 
-    def isLeafNode(self):
-        if len(self.children) == 0:
-            self.leaf = True
-
-            return True
-
-        else: 
-            self.leaf = False
-            return False
-
-    def isFullyExpanded(self):
-
-        if len(self.children) == self.numActions:
-
-            return True
-
-        else:
-
-            return False
-
-    def getTimesVisited(self):
-
-        return self.timesVisted
-
-    def getParent(self):
-
-        return self.parent
-
    
     def createChild(self, node, state, action, rol, col, reward, done, _type_):
         #node, node.state, action, node.row, node.col
@@ -407,19 +379,6 @@ class Node:
         if len(self.childrenNotCreated) > 0:
             self.childrenNotCreated.remove(action)
         return child
-
-    def simulate(self):
-        next_state, reward, done, row, col, __ = self.env.step(self.state, self.action, self.row, self.col)
-        self.numSimulations += 1
-
-        if str(reward) not in self.nodeData:
-            self.nodeData.update({str(reward) : {"count" : 1, str(reward) : reward}})
-            self.parent.createChild(self.parent, self.state, self.action, self.row, self.col, reward, done, True)
-        else:
-            self.nodeData[str(reward)]["count"] += 1
-
-        self.probability = self.getRewardProbability(reward)
-
 
 
 
