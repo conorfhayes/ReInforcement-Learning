@@ -13,7 +13,7 @@ class DeepSeaTreasureDanger(gym.Env):
 
     def __init__(self):
         
-        self.debug_file = open('debug' ,'w')
+        #self.debug_file = open('debug' ,'w')
     
         self.depths = [1, 2, 3, 4, 4, 4, 7, 7, 9, 10]
         self.treasure = [1, 2, 3, 5, 8, 16, 24, 50, 74, 124]
@@ -27,7 +27,7 @@ class DeepSeaTreasureDanger(gym.Env):
 
         self.action_space = spaces.Discrete(4)              # 2 actions, go fish and go wood
         #self.observation_space = spaces.Discrete(2)         # 2 states, fishing and in the woods
-        self.num_rewards = 2                                # 2 objectives, amount of fish and amount of wood
+        self.num_rewards = 3                               # 2 objectives, amount of fish and amount of wood
 
         #self._seed()
         self.reset()
@@ -43,9 +43,9 @@ class DeepSeaTreasureDanger(gym.Env):
         self.agentRow = 0
         self.agentCol = 0
         self.state = 0
-        self._health_ = 100
+        self._health_ = 0
 
-        return self.agentRow, self.agentCol, self.state
+        return self.state
 
     def isValid(self, row, col):
 
@@ -83,17 +83,16 @@ class DeepSeaTreasureDanger(gym.Env):
             if row < 0:
                 row = 0
 
-        self.agentRow = row
-        self.agentCol = col
+        #self.agentRow = row
+        #self.agentCol = col
 
-        return self.agentRow, self.agentCol
-
+        return row, col
     def getRewards(self, row, col):
         rewards = np.zeros((3,))
 
         rewards[self.TIME] = -1
         rewards[self.TREASURE] = 0
-        rewards[self.HEALTH] = self._health_
+        rewards[self.HEALTH] = 0
 
         #print("Row ", row, file = self.debug_file)
         #print("Col ", col, file = self.debug_file)
@@ -103,38 +102,89 @@ class DeepSeaTreasureDanger(gym.Env):
             rewards[self.TREASURE] = self.treasure[col]
 
 
-        if row == 2 and col == 3:
-            if random.random() < 0.25:
 
+        if row == 1 and col == 4:
+            if random.random() < 0.5:
+
+                rewards[self.HEALTH] = -75
+
+        elif row == 1 and col == 5:
+
+            if random.random() < 1:
+                
+                rewards[self.HEALTH] = -100
+
+        elif row == 1 and col == 6:
+
+            if random.random() < 0.5:
+                
                 rewards[self.HEALTH] = -75
 
         elif row == 2 and col == 4:
+            if random.random() < 0.5:
 
-            if random.random() < 1:
-                
-                rewards[self.HEALTH] = -100
+                rewards[self.HEALTH] = -75
 
         elif row == 2 and col == 5:
 
-            if random.random() < 0.25:
-                _done_ = True
-                rewards[self.HEALTH] = -75
-
-        elif row == 3 and col == 3:
-
             if random.random() < 1:
+                
+                rewards[self.HEALTH] = -100
+
+        elif row == 2 and col == 6:
+
+            if random.random() < 0.5:
                 
                 rewards[self.HEALTH] = -75
 
-        elif row == 3 and col == 4:
+        elif row == 4 and col == 6:
+            if random.random() < 0.5:
+
+                rewards[self.HEALTH] = -75
+
+        elif row == 4 and col == 7:
 
             if random.random() < 1:
                 
                 rewards[self.HEALTH] = -100
 
-        elif row == 3 and col == 5:
+        elif row == 4 and col == 8:
+
+            if random.random() < 0.5:
+                
+                rewards[self.HEALTH] = -75
+
+        elif row == 5 and col == 6:
+            if random.random() < 0.5:
+
+                rewards[self.HEALTH] = -75
+
+        elif row == 5 and col == 7:
 
             if random.random() < 1:
+                
+                rewards[self.HEALTH] = -100
+
+        elif row == 5 and col == 8:
+
+            if random.random() < 0.5:
+                
+                rewards[self.HEALTH] = -75
+
+        elif row == 6 and col == 6:
+            if random.random() < 0.5:
+
+                rewards[self.HEALTH] = -75
+
+        elif row == 6 and col == 7:
+
+            if random.random() < 1:
+                
+                rewards[self.HEALTH] = -100
+
+        elif row == 6 and col == 8:
+
+            if random.random() < 0.5:
                 
                 rewards[self.HEALTH] = -75
 
@@ -143,61 +193,83 @@ class DeepSeaTreasureDanger(gym.Env):
 
     def isTerminal(self, row, col):
 
-        if row == self.depths[col]:
+        if  row == 2 and col == 5:
+            return True
+        elif  row == 4 and col == 7:
+            return True
+        elif  row == 5 and col == 7:
+            return True
+        elif  row == 7 and col == 7:
+            return True
+        elif row == self.depths[col]:
             return True
         else:
             return False    
 
-    def getState(self, row, col):
+    def getState(self, col, row):
+        state = [col, row]
 
-        state = [row, col]
         numState = 11 * 10
-        basesForStateNo = [11, 10]
+        basesForStateNo = [10, 10]
         stateNo = 0
 
         for i in range(2):
-            stateNo = stateNo * basesForStateNo[i] + state[i];
-        
+            stateNo = int(stateNo * basesForStateNo[i] + state[i])
+
         return stateNo
+
+
+    def getXYfromState(self,state):
         
-
-    def getXYfromState(self, state):
-        baseRow = 11
-        baseCols = 10
-        basesForStateNo = [11,10]
-        stateNo = []
-        #stateNo = 0
-
+        basesForStateNo = [10, 10]
+        stateNo = [0,0]
+        # stateNo = 0
+        inputstateNo = state
+        j = 1
         for i in range(2):
-            stateNo.append(state % basesForStateNo[i])
-            inputstateNo = state / basesForStateNo[i]
+
+            check = int(inputstateNo % basesForStateNo[i])
+            stateNo[j] = check
+            inputstateNo = int(inputstateNo / basesForStateNo[i])
+            j -= 1
 
         return stateNo
 
 
 
-    def step(self, state, action):
+    def step(self, state, action, health):
 
-        rewards = np.zeros((2,))
+        rewards = np.zeros((3,))
         done = False
 
         state_ = self.getXYfromState(state)
-        row = state_[0]
-        col = state_[1]
+        col = state_[0]
+        row = state_[1]
+
+        #print("Row", row, file = self.debug_file)
+        #print("Col",col, file = self.debug_file)
 
         _row_, _col_ = self.updatePosition(action, row, col)
 
+        #print("Row A", _row_, file = self.debug_file)
+        #print("Col A",_col_, file = self.debug_file)
+
+
         rewards = self.getRewards(_row_, _col_)
-        state = self.getState(_row_, _col_)
-        #print("Timestep", timestep, file = self.debug_file)
+        state = self.getState(_col_, _row_)
+
+        #print("State ", state, file = self.debug_file)
 
         _done_ = self.isTerminal(_row_, _col_)
 
-        if rewards[self.HEALTH] == 0:
+        health = rewards[self.HEALTH] + health
+
+        if health <= -100:
+            health = -100
             _done_ = True
 
 
         if _done_ == True:
             done = True
 
-        return state, rewards, done, {}
+        return state, rewards, done, health, {}
