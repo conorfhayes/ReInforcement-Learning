@@ -53,17 +53,21 @@ class Tree:
         self.args = args
         self.env = gym.make(self.args.env)
         self.num_actions = 4
+        self.childChanceRewards = {}
         self.rewards = []
         self.probabilities = []
+        self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
         self.file = file
         self.parent = "Null"
         self.root = "Null"
         self.CR = [0,0]
+        self.health = 0
         self.hasChanceNodes = False
 
         for action in range(self.num_actions): 
-            state, reward, done, __ = self.env.step(self.state, action)
-            node = Node("Null", state, action, self.args, reward, done, False)
+            state, reward, done, health, __ = self.env.step(self.state, action, self.health)
+            self.childChanceRewards[action].append(reward)
+            node = Node("Null", state, action, self.args, reward, done, health, False)
             self.children.append(node)
             self.simulate(node)
 
@@ -75,7 +79,10 @@ class Tree:
             import random
             node.timesVisted += 1
 
-            if node.isleaf == True and node.done == False:
+            if node == "Null":
+                pass
+
+            elif node.isleaf == True and node.done == False:
                 self.expand(node)
                 return
             
@@ -87,7 +94,7 @@ class Tree:
                         _node_ = nodes                                
                 select(_node_)
 
-            if node.done == True:
+            if node.done == True or node.health <= -100:
                 #print("Node is done and we went here", file = self.file)
                 #self.backPropogation(node, node.reward, node.probability)
                 return  
@@ -102,6 +109,12 @@ class Tree:
                 _node_ = self.children[pick]
                 select(_node_)
 
+            elif node.isleaf == True and node.done == False:
+                self.expand(node)
+                
+
+            if self.root == "Null":
+                pass
             else:
                 v = sys.maxsize
                 for nodes in node.children:
@@ -122,9 +135,10 @@ class Tree:
 
         for action in range(self.num_actions):
 
-            state, reward, done,  __ = self.env.step(node.state, action)
+            state, reward, done, health,  __ = self.env.step(node.state, action, node.health)
 
-            child = node.createChild(node, state, action, reward, done, False)
+            child = node.createChild(node, state, action, reward, done, health, False)
+            node.childChanceRewards[action].append(reward)
 
         child = random.choice(node.children)
    
@@ -135,7 +149,7 @@ class Tree:
 
     def simulate(self, node):
 
-        cumulative_reward = [0,0]
+        cumulative_reward = [0,0,0]
         estProb = 0
         numActions = 4
         done = False
@@ -146,8 +160,13 @@ class Tree:
         #row = node.row
         #col = node.col
         prob = 1
+        health = 0
 
         if node.done == True:
+
+            #print("Done Simulation Cumulative Reward Check ::", cumulative_reward, file = self.file)
+            #print("Done Simulation Reward Check ::", node.reward, file = self.file)
+            #print("Done Simulation Done ::", done, file = self.file)
            
             cumulative_reward += node.reward
             probability = node.getProbability()
@@ -159,14 +178,22 @@ class Tree:
             a = 0  
             #print(cumulative_rewards[1] + _timer_, file = self.file)
 
-            while time < _timer_ and done == False:
+            while time < _timer_ and done == False and health > -100:
                 action = random.randint(0, 3)
-                next_state, reward, done, __ = self.env.step(state, action)
+                next_state, reward, done, health, __ = self.env.step(state, action, health)
                 cumulative_reward += reward
+
+                #print("Simulation Cumulative Reward Check ::", cumulative_reward, file = self.file)
+                #print("Simulation Reward Check ::", node.reward, file = self.file)
+                #print("Simulation Done ::", done, file = self.file)
+
+                if cumulative_reward[1] <= -100:
+                    cumulative_reward[1] = -100
+                    done == True
                 if a == 0:
-                    prob = node.getProbability()
+                    probability = node.getProbability()
                 else:
-                    prob = prob * node.getProbability()
+                    probability = probability * node.getProbability()
 
                 #print("Prob :", prob, file = self.file)
                 state = next_state
@@ -178,7 +205,12 @@ class Tree:
                 a += 1
                                 
             cumulative_reward += node.reward
-            probability = prob * node.getProbability()
+            probability = probability * node.getProbability()
+
+            if cumulative_reward[1] <= -100:
+                cumulative_reward[1] = -100
+
+            
 
             self.backPropogation(node, cumulative_reward, probability)
 
@@ -199,10 +231,15 @@ class Tree:
 
             #node.rewards.append(cumulative_reward)
             #node.probabilities.append(probability)
-            #node = node.parent
+            node = node.parent
 
             while a == 0:
+                #print("Backprop Cumulative Reward Check Before ::", cumulative_reward, file = self.file)
                 cumulative_reward = cumulative_reward + node.reward
+                #print("Backprop Cumulative Reward Check After ::", cumulative_reward, file = self.file)
+                #print("Backprop Reward Check ::", node.reward, file = self.file)
+                if cumulative_reward[1] <= -100:
+                    cumulative_reward[1] = -100
                 probability = probability * node.getProbability()
 
                 node.rewards.append(cumulative_reward)
@@ -210,8 +247,10 @@ class Tree:
                 
                 if node.parent == "Null":
                     
-                    cumulative_reward = cumulative_reward + node.reward
-                    probability = probability * node.getProbability()
+                    #cumulative_reward = cumulative_reward + node.reward
+                    if cumulative_reward[1] <= -100:
+                        cumulative_reward[1] = -100
+                    #probability = probability * node.getProbability()
 
                     node.rewards.append(cumulative_reward)  
                     node.probabilities.append(probability)
@@ -222,6 +261,8 @@ class Tree:
                     node = node.parent
             
         return
+
+    
 
     def run(self):
 
@@ -251,11 +292,13 @@ class Tree:
             for node in node.children:
 
                 if node.done == True:
+                    #print("Run Node Reward :", node.reward, file = self.file)
                     childrenRewards[node.action].append(node.reward)
                     childrenProbabilities[node.action].append(node.getProbability())
 
 
-                childrenRewards[node.action].extend(node.rewards)
+                childrenRewards[node.action].append(node.rewards)
+                #print("Run Node Rewards :", node.rewards, file = self.file)
                 childrenProbabilities[node.action].append(node.probabilities) 
 
             return self, childrenRewards, childrenProbabilities
@@ -268,25 +311,46 @@ class Tree:
 
         return
 
+    def getXYfromState(self,state):
+        
+        basesForStateNo = [10, 10]
+        stateNo = [0,0]
+        # stateNo = 0
+        inputstateNo = state
+        j = 1
+        for i in range(2):
+
+            check = int(inputstateNo % basesForStateNo[i])
+            stateNo[j] = check
+            inputstateNo = int(inputstateNo / basesForStateNo[i])
+            j -= 1
+
+        return stateNo
+
 
     def takeAction(self, action):
 
         if self.root == "Null":
-
-            next_state, reward, done, __ = self.env.step(self.state, action)
+            #print("State Before", self.getXYfromState(self.state), file = self.file)
+            next_state, reward, done, health, __ = self.env.step(self.state, action, self.health)
 
             flag = 0
             for node in self.children:
                 if node.action == action:
                     node.timesActionTaken += 1
-                    if reward.all() == node.reward.all():
+                    if any((reward == q).all() for q in self.childChanceRewards[action]):
                         self.root = node
+                        #print("Node State", node.state, file = self.file)
+                        node.health = health
                         node.timeRewardReceived += 1
                         flag = 1
 
+            #print("Next State", self.getXYfromState(next_state), file = self.file)
+
             if flag == 0:        
                 #print("Here 1", file = self.file)                    
-                node = self.root.createChild("Null", next_state, action, next_rol, next_col, reward, done, True)
+                node = self.root.createChild("Null", next_state, action,reward, done, health, True)
+                self.childChanceRewards[action].append(reward)
 
             self.CR += [0, -1]
 
@@ -294,68 +358,96 @@ class Tree:
                 #self.backPropogation(node, reward, node.probability)
                 self.reset()
 
+            #if node.health <= -100:
+            #    reward[1] = -100
+            #    self.reset()
+
         else:
             node = self.root
             if node.done == False:
 
-                next_state, reward, done, __ = self.env.step(node.state, action)
+                #print("State Before", self.getXYfromState(node.state), file = self.file)
+                next_state, reward, done, health, __ = self.env.step(node.state, action, node.health)
                 
                 flag = 0
                 #print("Action:", action, file = self.file)
                 #print("Node Reward:", node.reward, file = self.file)
+                a = 0
                 for _node_ in node.children:
                     if _node_.action == action:
-                        _node_.timesActionTaken += 1
-                        if reward.all() == _node_.reward.all():
-                            self.root = _node_
-                            _node_.timeRewardReceived += 1
-                            flag = 1
+                        _node_.timesActionTaken += 1                        
+                        if any((reward == q).all() for q in node.childChanceRewards[action]):
+                            comparison = reward == _node_.reward
+                            if comparison.all():
+                                self.root = _node_
+                                a += 1
+                                print("AAAAAAA", a , file = self.file)
+                                #_node_.timeRewardReceived += 1
+                                #print("Node State", _node_.state, file = self.file)
+                                #print("Reward All", reward, file = self.file)
+                                #print("Node Reward All", _node_.reward, file = self.file)
+                                #print("Node Parent Chance Reward", node.childChanceRewards[action], file = self.file)
+
+                                _node_.health = health
+                                _node_.timeRewardReceived += 1
+                                print("Times Action Taken :",_node_.timesActionTaken, file = self.file)
+                                print("Times Reward Received :",_node_.timeRewardReceived, file = self.file)
+                                flag = 1
+
+                #print("Next State", self.getXYfromState(next_state), file = self.file)
 
                 if flag == 0:     
-                    #print("Here 2", file = self.file)                       
-                    _node_ = node.createChild(node, next_state, action, next_rol, next_col, reward, done, True)
-                    #self.backPropogation(node, reward, _node_.probability)
+                    print("Here 2", file = self.file)                       
+                    _node_ = node.createChild(node, next_state, action, reward, done,reward[1], True)
+                    
+                    node.childChanceRewards[action].append(reward)
                     self.root = _node_
+                    _node_.health = health
                     _node_.timesActionTaken += 1
                     _node_.timeRewardReceived += 1
 
                 if done == True:
                     #print("Terminal Reward ::", node.reward, file = self.file)
                     #self.backPropogation(node, reward, node.probability)
-                    self.reset()
-
-                
+                    self.reset()                
 
                 #print("Action ::", action, file = self.file)
+               # elif node.health <= -100:
+               #     self.reset()
 
             else:
 
                 self.reset()
 
-        return reward
+            #print("Action Reward :", reward, file = self.file)
+            self.backPropogation(node, reward, _node_.getProbability())
+            #print("Done ? :", done, file = self.file)
+
+        return next_state, reward, node
 
 
 
 
 class Node:
 
-    def __init__(self, node, state, action, args, reward, done, _type_):
+    def __init__(self, node, state, action, args, reward, done, health, _type_):
         self.numActions = 4
+        self.health = health
         self.parent = node
         self.state = state
         self.numActions = 4
         self.action = action
         self.children = []
         self.reward = reward
-        self.childrenNotCreated = [0,1,2,3]
         self.isleaf = True
         self.args = args
-        #self.env = env
-        #print("Worked", args, file = self.file)
         self.env = gym.make(self.args.env)
         self.timesVisted = 1
         self.rewards = []
+        self.chanceRewards = []
         self.probabilities = []
+        self.chanceRewards.append(reward)
+        self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
         
         self.done = done
         self.hasChanceNodes = _type_
@@ -363,14 +455,10 @@ class Node:
         self.timesActionTaken = 0
         self.timeRewardReceived = 0
         self.probability = self.getProbability()
-        
-        
-
-
 
     def getProbability(self):
         if self.timesActionTaken > 0 and self.timeRewardReceived > 0:
-            probability = self.timesActionTaken / self.timeRewardReceived
+            probability = self.timeRewardReceived / self.timesActionTaken
             probability = probability / self.numActions
         else:
             _prob_ = 1
@@ -379,14 +467,12 @@ class Node:
         return probability
 
    
-    def createChild(self, node, state, action, reward, done, _type_):
+    def createChild(self, node, state, action, reward, done, health, _type_):
         #node, node.state, action, node.row, node.col
-        child = Node(node, state, action, self.args,reward, done, _type_)
+        child = Node(node, state, action, self.args,reward, done, health, _type_)
 
         self.children.append(child)
 
-        if len(self.childrenNotCreated) > 0:
-            self.childrenNotCreated.remove(action)
         return child
 
 
@@ -550,7 +636,7 @@ class Learner(object):
         """
         env_state = self._env.reset()
         done = False
-        self._num_rewards = 2
+        self._num_rewards = 3
         cumulative_rewards = np.zeros(shape=(self._num_rewards,))
         rewards = np.zeros(shape=(self._num_rewards,))
         
@@ -567,36 +653,40 @@ class Learner(object):
         #self.row = 0
         #self.col = 0
         self.done = False
+        health = 0
         
         self.tree.root = "Null"
+        a = 0
+        check = random.randint(0,1)
         while not self.done:
             
             state = env_state            
-            check = random.uniform(0, 1)
 
-            #print(self.epsilon, file = self.debug_file)
-            if check < self.epsilon:
-                # select random action
-                action = random.randint(0, self.num_actions - 1)
-            #    print("Random Action : " , action , file = self.debug_file)
-            else:
-
-                action_rewards = []
-                action_prob = []
-
-                
+            action_rewards = []
+            action_prob = []                
 
             self.tree.step(cumulative_rewards)
             tree, testReward , testProbs = self.tree.run()
+            #health = 0
 
-            action = random.randint(0, 3)     
-             
+            #action = random.randint(0, 3)  
+            if a < 3 + check:
+                action = 0
+            else: 
+                action = 2
+
+            print("Action:", action, file = self.debug_file)             
             print("Cumulative Reward : ", cumulative_rewards, file = self.debug_file)         
             print("State ", env_state, file = self.debug_file)
-            #print("Row :", self.row, " Col :", self.col, file = self.debug_file)
-            print("Rewards Action 0:: ", testReward, file = self.debug_file)
-            print("Rewards Prob 0:: ", testProbs, file = self.debug_file)
-            
+            print("Rewards Action 0:: ", testReward[0], file = self.debug_file)
+            print("Rewards Prob 0:: ", testProbs[0], file = self.debug_file)
+            print("Rewards Action 1:: ", testReward[1], file = self.debug_file)
+            print("Rewards Prob 1:: ", testProbs[1], file = self.debug_file) 
+            print("Rewards Action 2:: ", testReward[2], file = self.debug_file)
+            print("Rewards Prob 2:: ", testProbs[2], file = self.debug_file)  
+            print("Rewards Action 3:: ", testReward[3], file = self.debug_file)
+            print("Rewards Prob 3:: ", testProbs[3], file = self.debug_file)    
+            print(" ", file = self.debug_file)     
             
             if len(self._aspace) > 1:
                 # Choose each of the factored action depending on the composite action
@@ -610,48 +700,38 @@ class Learner(object):
                 new_env_state, rewards, self.timestep, self.done, __ = self._env.step(actions)
             else:
                 # Simple scalar action
-                new_env_state, rewards, self.done,  __ = self._env.step(env_state, action)
+                #print("ENV State ::", env_state, file = self.debug_file)
+                new_env_state, rewards, self.done, health,  __ = self._env.step(env_state, action, health)
+
+            env_state, rewards, node = self.tree.takeAction(action)
+            print("Rewards Main", rewards, file = self.debug_file)
+
+            cumulative_rewards += rewards
+
+            print("Cumulative Rewards Main", cumulative_rewards, file = self.debug_file)
+            if len(node.children) > 4:
+                print("Number of Children :", len(node.children), file = self.debug_file)
+                for i in range(len(node.children)):
+                    print("Nnode :", i, "has action", node.children[i].action,"has reward", node.children[i].reward, "with probability", node.children[i].getProbability(), file = self.debug_file)
+
+
+            if cumulative_rewards[1] <= -100:
+                cumulative_rewards[1] = -100
+                self.done = True
+                #tree.reset()
 
             
-            rewards = self.tree.takeAction(action)
-
             
 
-                #print("Is Row : ", self.row, file = self.debug_file)
-                #print("Is Col : ", self.col, file = self.debug_file)
-
-            #print("Done : ", done, file = self.debug_file)
             if self._render:
                 self._env.render()
-
-            #rewards[1] = rewards[1] / abs(rewards[2])
-            #print(cumulative_rewards, file = self.debug_file)
-            cumulative_rewards += rewards
-            #print(rewards, file = self.debug_file)
-            #print("Cumulative Rewards :", cumulative_rewards, file = self.debug_file)
-            #print(" ", file = self.debug_file)
-            #cumulative_rewards[1] = cumulative_rewards[1] / abs(cumulative_rewards[2])
-            #tree = self.TS[env_state]
             
-                #print("Tester 2 :: ", test2, file = self.debug_file)
-            
-            #self.dict = self.updateDictionary(env_state, action, new_env_state, rewards, self.dict)
-            
-            #self.dict[env_state][action][new_env_state]['count'] += 1
-            #self.dict[env_state][action][new_env_state][str(rewards)]['count'] += 1
+            #env_state = new_env_state
 
-            #print("Action 1 Reward :", self.dict[1][1][1], file = self.debug_file)
-            #print("Action 0 Reward :", self.dict[0][0][0], file = self.debug_file)
-            #self.dict[env_state][action]['count'] += 1
-            #self.dict[env_state][action][str(rewards)]['count'] += 1
+            a += 1
+            if a > 100:
+                self.done = True
 
-            
-            env_state = new_env_state
-
-            # Mark episode boundaries
-
-        # print("Prob", self.prob_time_table[env_state][timestep][:], file = self.debug_file)
-        # previous_culmulative_rewards = cumulative_rewards
         return cumulative_rewards
 
 def main():
