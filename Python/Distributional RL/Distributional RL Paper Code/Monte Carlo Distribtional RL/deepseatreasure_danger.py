@@ -193,13 +193,15 @@ class DeepSeaTreasureDanger(gym.Env):
 
     def isTerminal(self, row, col):
 
-        if  row == 2 and col == 5:
+        if  row == 1 and col == 5:
+            return True
+        elif  row == 2 and col == 5:
             return True
         elif  row == 4 and col == 7:
             return True
         elif  row == 5 and col == 7:
             return True
-        elif  row == 7 and col == 7:
+        elif  row == 6 and col == 7:
             return True
         elif row == self.depths[col]:
             return True
@@ -266,10 +268,13 @@ class DeepSeaTreasureDanger(gym.Env):
 
         if health <= -100:
             health = -100
+            rewards[1] = -100
             _done_ = True
 
 
         if _done_ == True:
             done = True
+
+
 
         return state, rewards, done, health, {}
