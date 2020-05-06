@@ -12,6 +12,7 @@ import datetime
 from collections import deque
 from array import *
 import collections
+from itertools import chain
 
 import pandas as pd
 import time
@@ -38,264 +39,509 @@ register(
     reward_threshold=0.0,
     kwargs={}
 )
+register(
+    id='DeepSeaTreasureDanger-v0',
+    entry_point='deepseatreasure_danger:DeepSeaTreasureDanger',
+    reward_threshold=0.0,
+    kwargs={}
+)
 
+class Tree:
 
-class Node():
-
-    def __init__(self, env, action, state, id, cumulative_rewards, timestep, layer, file, _dict_, probability, parent,_all_, row, col, done):
-
-        self.simulations = 4
-        self.num_actions = 4
-
-        self.action = action
-        self.probability = probability
-        self.cumulative_rewards = cumulative_rewards
-        self.state = self.action
-        
-        self.debug_file = file
-        self.children = []
-        self.parent = parent
-        self.layer = layer + 1
-        self.env = env
-        self.unique_id = self.layer + 1
-        self.row = row
-        self.col = col        
-        
-        self.action = action
-        self.times_visited = 0
-        self.timestep = timestep
-        
-        self.cumulative_rewards = cumulative_rewards
-        self.id = id
-        self.done = done
-        self.action = action
-        self.probability = probability
-        self._all_ = _all_
-        
-        self._run_(self.state, _dict_, self.probability, self._all_, self.row, self.col)
-
-
-
-    def create_children(self, state, action, cumulative_rewards, _dict_, probability, _all_, row, col, done):
-        child_id = self.id + 1
-       
-        node = Node(self.env, action, state, child_id, cumulative_rewards, self.timestep + 1, self.layer, self.debug_file,
-                 _dict_, probability, True, _all_, row, col, done)
-
-        self.children.append(node)
-        self.unique_id += 1
-
-        return node
-
-
-    def getProbability(self, state, action, reward, timestep, _dict_):
-        #next_state, reward, timestep, self.done, __ = self.env.step(state, action, timestep)
-
-        probability = (_dict_[state][action][str(reward)]['count'] / _dict_[state][action][
-            'count'])/ self.num_actions
-
-        #probability = (_dict_[state][action][action][str(reward)]['count'] / _dict_[state][action][action][
-        #    'count']) / self.num_actions
-
-
-        #self.reward = reward
-
-        return probability 
-    
-
-
-    def simultation(self, state, action, cumulative_rewards, timestep, _dict_, row, col):
-        next_state, reward, timestep, self.done, row, col, __ = self.env.step(state, action, timestep, row, col)        
-
-        #probability = (_dict_[state][action][next_state][str(reward)]['count'] / _dict_[state][action][next_state][
-        #    'count'])/ self.num_actions
-        
-        if str(reward) in _dict_[state][action]:
-
-            probability = (_dict_[state][action][str(reward)]['count'] / _dict_[state][action]['count']) / self.num_actions
-            
-        else:
-            #self.dict = self.updateDictionary(env_state, action, new_env_state, rewards, self.dict)
-            #learner.dict = learner.updateDictionary(state, action, next_state, reward, _dict_)
-            probability = 0.25
-
-
-        self.reward = reward
-
-        return probability, next_state, reward + cumulative_rewards, row, col
-    
-
-        # Create Tree for each state, add to tree if needed and reuse! Hopefully this will save computation!
-
-    def createTree(self, state, _dict_, probability, _all_, row, col):
-
-        tree = self._run_(state, _dict_, probability, _all_, row, col)
-        #print("Tree " , tree[0].children, file = self.debug_file)
-
-        return tree
-
-
-
-    def push(self,tree, cumulative_rewards, timestep, _dict_, probability, action, row, col):
-
-        self.cumulative_rewards = cumulative_rewards
-        self.timestep = timestep  
-        self.probability = probability
-        self.action = action
-        #self.row = row
-        #self.col = col
-        rewards = []
-        probabilities = []
-
-        def _push(node, action, cumulative_rewards, timestep, _dict_, probability, row, col): 
-
-            
-            done = node.done
-
-            _probability_, next_state, cumulative_rewards, row, col = node.simultation(node.state, action, cumulative_rewards,timestep,_dict_, row, col) 
-
-            if probability == 0:
-
-                probability = _probability_
-            else:
-                probability = _probability_ * probability
-
-            node.cumulative_rewards = cumulative_rewards
-            node.probability = probability          
-
-             
-            
-            a = 0 
-            for child in node.children: 
-                if done == False:
-                
-                    _push(child, a, cumulative_rewards, timestep +1, _dict_, probability, row, col) 
-
-                else:
-                    node.cumulative_rewards = cumulative_rewards
-                    node.probability = probability
-
-                    rewards.append(node.cumulative_rewards)
-                    probabilities.append(node.probability)
-
-
-                a += 1            
-                       
-
-            if len(node.children) == 0:            
-                
-                rewards.append(node.cumulative_rewards)
-                probabilities.append(node.probability)
-            
-
-        _push(tree, self.action, self.cumulative_rewards, timestep, _dict_, self.probability, row, col)
-
-        return rewards, probabilities
-
-
-    def _push_(self,tree, cumulative_rewards, timestep, _dict_, probability, action):
-
-        self.cumulative_rewards = cumulative_rewards
-        self.timestep = timestep  
-        self.probability = probability
-        self.action = action
-        rewards = []
-        probabilities = []
-
-        def _push(node):                                   
-
-            if len(node.children) == 0:              
-                
-                rewards.append(node.cumulative_rewards)
-                probabilities.append(node.probability)
-            
-            else:  
-                  
-                for child in node.children:
-                    _push(child)                    
-
-        _push(tree)
-
-        return rewards, probabilities
-
-
-
-
-    def _run_(self, state, _dict_, probability, _all_, row, col):
-        timestep = self.timestep
-        
+    def __init__(self, state, args, file):
         self.state = state
-        if _all_ == True:
+        self.children = []
+        self.args = args
+        self.env = gym.make(self.args.env)
+        self.numRewards = 2
+        self.num_actions = 4
+        self.childChanceRewards = {}
+        self.rewards = []
+        self.probabilities = []
+        self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
+        self.file = file
+        self.parent = "Null"
+        self.root = "Null"
+        self.CR = [0,0]
+        self.health = 0
+        self.state = 0
+        self.done = False
+        self.isleaf = False
+        self.timesVisited = 1
+        self.hasChanceNodes = False
+        self.cr = 0
 
-            if self.parent is True:                
- 
-                for reward in _dict_[self.action][self.action][self.action]:
+        for action in range(self.num_actions): 
+            if self.numRewards == 3:
+                state, reward, done, health, __ = self.env.step(self.state, action, self.health)
+                self.childChanceRewards[action].append(reward)
+                node = Node("Null", state, action, self.args, reward, done, health, False)
+            else:
+                state, reward, done, __ = self.env.step(self.state, action)
+                self.childChanceRewards[action].append(reward)
+                node = Node("Null", state, action, self.args, reward, done, 0, False)
 
-                    if reward == 'count':
-                        pass
-                    else:                        
-                        _reward_ = _dict_[self.action][self.action][self.action][reward]['reward']
+            self.children.append(node)
+            #print("Utility Function :", node._utility, file = self.file)
+            #self.simulate(node)
+
+    def step(self, cumulative_reward):
+        start = 0
+        import random
+        check = random.random()
+        self.num_expansions = 0
+        self.cr = cumulative_reward.copy()
 
 
-                        probability = self.getProbability(self.action, self.action, _reward_, timestep, _dict_)
-                        cumulative_rewards = self.cumulative_rewards + _reward_ 
-                        
+        def findExpansionSpot(node):
 
-                        self.create_children(self.action, self.action, cumulative_rewards, _dict_, probability, _all_)              
-                        
+            if node == "Null":
 
-            if self.simulations > 0:
-                for action in range(self.num_actions):
-                    
-                    for reward in _dict_[state][action][action]:
-                        
-                        _reward_ = _dict_[state][action][action][reward]['reward']
-                        if self.layer <= self.simulations:
-                            cumulative_rewards = self.cumulative_rewards + _reward_
-                            probability = self.getProbability(state, action, _reward_, timestep, _dict_)
+                node = self.UCT(node)
+                return findExpansionSpot(node)
+                
+            else:
 
-                            if self.probability == 0:
-                                self.probability = probability
-                            else:
-                                self.probability = probability * self.probability
+                if node.done == True:
+                    return node
 
-                        if self.layer <= self.simulations and timestep <= 200:
-                            self.create_children(action, action, cumulative_rewards, _dict_, self.probability, _all_)
+                if node.isleaf == True:
+                    node = self.expand(node)
+                    return node   
+                
+                node = self.UCT(node)
+                return findExpansionSpot(node)
 
-        # Beginning of generation of the tree search algorithm
+        def rollOut(node):
+            self.simulate(node)        
+
+        while self.num_expansions < 4:
+
+            node = self.root                   
+            node = findExpansionSpot(node)
+            rollOut(node)
+
+            self.num_expansions += 1            
+
+        return  
+
+
+    def expand(self, node):
+        action = random.choice(node.childrenRemaining)
+
+        if self.numRewards == 3:
+
+            state, reward, done, health,  __ = self.env.step(node.state, action, node.health)
+            child = node.createChild(node, state, action, reward, done, health, False)
+        else:
+            state, reward, done, __ = self.env.step(node.state, action)
+            child = node.createChild(node, state, action, reward, done,0, False)
+
+        node.childChanceRewards[action].append(reward)
+        node.childrenRemaining.remove(action)
+
+        if len(node.children) == self.num_actions:
+            node.isleaf = False
+        else:
+            node.isleaf = True
+
+        #_node_ = self.UCT(node)  
+        #_node_ = random.choice(node.children)
+   
+        #self.simulate(node)
+        #self.simulate(child)
+
+        return child
+
+    def UCT(self, node):
+
+        c = 10
+
+        if node == "Null":
+            uct = [0] * len(self.children)
+            sumValue = 0
+            bestAction = -10
+            bestActions = []
+            a = 0
+            for child in self.children: 
+
+                if child.timesVisited == 0:
+                    uct[a] = sys.maxsize
+                else:
+
+                    uct[a] = (child.rollUCT / child.timesVisited ) +  c * ( np.sqrt ( ((2 *  np.log(self.timesVisited)) / child.timesVisited ) ) )
+                a += 1
+            value = uct.index(max(uct))
+            move = self.children[value]
+
+            if random.random() < 0.1:
+                move = self.children[random.randint(0,len(self.children) - 1)]
 
         else:
-            
-            if self.done == False:
-                _probability_, next_state, cumulative_rewards, row, col = self.simultation(self.state, self.action,
-                                                                                      self.cumulative_rewards,
-                                                                                      timestep, _dict_, self.row, self.col)
-                if self.probability == 0:
-                    probability = _probability_
+
+            uct = [0] * len(node.children)
+            sumValue = 0
+            a = 0
+
+            for child in node.children: 
+                #print(child.timesVisited, file = self.file)
+                if child.timesVisited == 0:
+                    uct[a] = sys.maxsize
                 else:
-                    probability = _probability_ * self.probability
 
-                self.probability = probability
-                self.cumulative_rewards = cumulative_rewards
-                done = self.done
+                    uct[a] = (child.rollUCT / child.timesVisited ) +  c * ( np.sqrt ( ((2 *  np.log(node.timesVisited)) / child.timesVisited ) ) )
+                a += 1
 
-                #self.cumulative_rewards = cumulative_rewards
 
-                for action in range(self.num_actions):
-                    #print("Layer ", self.layer, file = self.debug_file)
-                    if self.layer <= self.simulations and self.done == False:
-                        self.create_children(next_state, action, cumulative_rewards, _dict_, probability, self._all_, row, col, done)
 
-                if self.done == True:
-                    if self.layer <= self.simulations:
-                        self.create_children(next_state, self.action, cumulative_rewards, _dict_, probability, self._all_, row, col, done)
+            value = uct.index(max(uct))
+            move = node.children[value]
+
+            if random.random() < 0.1:
+                move = node.children[random.randint(0,len(node.children) - 1)]
+            
+        #print("UCT", uct, file = self.file)
+        return move
 
 
 
 
-        self.timestep = self.timestep + 1
+    def simulate(self, node):
 
-        return self
+        cumulative_reward = [0] * self.numRewards
+        estProb = 0
+        numActions = 4
+        done = False
+        time = 0
+        _timer_ = 100
+        state = node.state
+        action = node.action
+        #row = node.row
+        #col = node.col
+        prob = 1
+        health = 0
+        _done_ = False
+
+        if node.done == True:
+           
+            cumulative_reward += node.reward
+            probability = node.getProbability()
+            self.backPropogation(node, cumulative_reward, probability)
+            return
+
+        else:
+            a = 0  
+
+            while _done_ == False and health > -100:
+
+                action = random.randint(0, 3)
+                
+                if self.numRewards == 3:
+                    next_state, reward, done, health, __ = self.env.step(state, action, health)
+                else:
+                    next_state, reward, done, __ = self.env.step(state, action)
+
+                cumulative_reward += reward
+
+                if len(cumulative_reward) > 2:
+                    if cumulative_reward[1] <= -100:
+                        cumulative_reward[1] = -100
+                        done == True
+                if a == 0:
+                    probability = node.getProbability()
+                else:
+                    probability = probability * node.getProbability()
+
+                #print("Prob :", prob, file = self.file)
+                state = next_state
+
+                time += 1
+                a += 1
+                _done_ = done
+
+            if len(cumulative_reward) > 2:
+
+                if cumulative_reward[1] <= -100:
+                    cumulative_reward[1] = -100
+
+            self.backPropogation(node, cumulative_reward, probability)
+
+
+        return
+
+    def backPropogation(self, node, cumulative_reward, probability):
+        
+        a = 0          
+
+        if node.done == True:
+            
+            node.rewards.append(cumulative_reward)
+            node.probabilities.append(node.getProbability())
+            node.rollUCT += node.scalarize_reward(cumulative_reward) * 1
+
+            node.timesVisited += 1
+            node = node.parent           
+                   
+
+        while node != "Null":            
+           
+            cumulative_reward = cumulative_reward + node.reward
+            probability = probability * node.getProbability()
+            
+            if len(cumulative_reward) > 2:
+                if cumulative_reward[1] <= -100:
+                    cumulative_reward[1] = -100
+
+            node.rewards.append(cumulative_reward)
+            node.probabilities.append(probability)
+            node.rollUCT += node.scalarize_reward(cumulative_reward) * 1
+
+            node.timesVisited +=1
+            node = node.parent
+            
+        return
+
+    
+
+    def run(self):
+
+        if self.root == "Null":
+            self.rewards = [ [] for x in range(self.num_actions)]
+            self.probabilities = [ [] for x in range(self.num_actions)]
+            expectedUtility = [0] * len(self.children) 
+
+            for node in self.children:
+                
+                self.rewards[node.action].append(node.rewards)
+                self.probabilities[node.action].append(node.probabilities) 
+
+                if node.timesVisited == 0:
+                    expectedUtility[node.action] += sys.maxsize
+                else:
+                    expectedUtility[node.action] += node.rollUCT / node.timesVisited 
+
+                if expectedUtility[node.action] == 0:
+                    expectedUtility[node.action] += sys.maxsize
+
+
+            return self, self.rewards, self.probabilities, expectedUtility
+
+        else:
+
+            node = self.root
+            childrenRewards = [[] for x in range(4)]
+            childrenProbabilities = [[] for x in range(4)]    
+            expectedUtility = [0,0,0,0]
+
+            for node in node.children:
+                
+
+                childrenRewards[node.action].append(node.rewards)
+                childrenProbabilities[node.action].append(node.probabilities) 
+                if node.timesVisited == 0:
+                    expectedUtility[node.action] += sys.maxsize
+                else:
+
+                    expectedUtility[node.action] += node.rollUCT / node.timesVisited 
+
+                if expectedUtility[node.action] == 0:
+                    expectedUtility[node.action] += sys.maxsize
+
+
+            return self, childrenRewards, childrenProbabilities, expectedUtility
+        
+
+    def reset(self):
+
+        self.root = 'Null'
+        self.CR = [0,0]
+        self.timesVisited += 1
+
+        return
+
+    def getXYfromState(self,state):
+        
+        basesForStateNo = [10, 10]
+        stateNo = [0,0]
+        # stateNo = 0
+        inputstateNo = state
+        j = 1
+        for i in range(2):
+
+            check = int(inputstateNo % basesForStateNo[i])
+            stateNo[j] = check
+            inputstateNo = int(inputstateNo / basesForStateNo[i])
+            j -= 1
+
+        return stateNo
+
+
+    def takeAction(self, action):
+
+        if self.root == "Null":
+            #print("State Before", self.getXYfromState(self.state), file = self.file) if self.numRewards == 3:
+            if self.numRewards == 3:
+                next_state, reward, done, health, __ = self.env.step(self.state, action, self.health)
+            else:
+                next_state, reward, done, __ = self.env.step(self.state, action)
+
+            flag = 0
+            for node in self.children:
+                if node.action == action:
+                    node.timesActionTaken += 1
+                    if any((reward == q).all() for q in self.childChanceRewards[action]):
+                        self.root = node
+                        #print("Node State", node.state, file = self.file)
+                        #node.health = health
+                        node.timeRewardReceived += 1
+                        flag = 1
+
+            #print("Next State", self.getXYfromState(next_state), file = self.file)
+
+            if flag == 0:        
+                #print("Here 1", file = self.file)                    
+                node = self.root.createChild("Null", next_state, action,reward, done, health, True)
+                print("Node Chance Rewards", node.chanceRewards, file = self.file)
+                print("Reward", reward, file = self.file)
+                self.childChanceRewards[action].append(reward)
+
+            self.CR += [0, -1]
+
+            if node.done == True:
+                #self.backPropogation(node, reward, node.probability)
+                self.reset()
+
+            #if node.health <= -100:
+            #    reward[1] = -100
+            #    self.reset()
+
+        else:
+            node = self.root
+            if node.done == False:
+
+                #print("State Before", self.getXYfromState(node.state), file = self.file)
+                if self.numRewards == 3:
+                    next_state, reward, done, health, __ = self.env.step(node.state, action, node.health)
+                else:
+                    next_state, reward, done, __ = self.env.step(node.state, action)
+
+                
+                flag = 0
+                
+                a = 0
+                for _node_ in node.children:
+                    if _node_.action == action:
+                        _node_.timesActionTaken += 1                        
+                        if any((reward == q).all() for q in node.childChanceRewards[action]):
+                            comparison = reward == _node_.reward
+                            #print("Node State", node.state, file = self.file)
+                            if comparison.all():
+                                self.root = _node_
+                                a += 1
+                                
+
+                                #_node_.health = health
+                                _node_.timeRewardReceived += 1
+                                flag = 1
+
+            
+                if flag == 0:     
+                    #print("Here 2", file = self.file)                       
+                    _node_ = node.createChild(node, next_state, action, reward, done, reward, True)
+                    print("Node Chance Rewards", node.chanceRewards, file = self.file)
+                    print("Reward", reward, file = self.file)
+                    
+                    node.childChanceRewards[action].append(reward)
+                    self.root = _node_
+                    _node_.health = health
+                    _node_.timesActionTaken += 1
+                    _node_.timeRewardReceived += 1
+
+            
+                    #print("Backprop Reward ?", reward, file = self.file)
+                    
+                                 
+
+            else:
+                #self.backPropogation(node, reward, _node_.getProbability())
+                self.reset()
+
+            #print("Backprop Reward ?", reward, file = self.file)
+
+            #self.backPropogation(node, reward, _node_.getProbability())
+
+        return next_state, reward, node, done
+
+
+
+
+class Node:
+
+    def __init__(self, node, state, action, args, reward, done, health, _type_):
+        self.numActions = 4
+        self.health = health
+        self.parent = node
+        self.state = state
+        self.numActions = 4
+        self.action = action
+        self.children = []
+        self.reward = reward
+        self.isleaf = True
+        self.args = args
+        self.env = gym.make(self.args.env)
+        self.timesVisited = 0
+        self.rewards = []
+        self.chanceRewards = []
+        self.probabilities = []
+        self.chanceRewards.append(reward)
+        self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
+        
+        self.done = done
+        self.hasChanceNodes = _type_
+        self.numSimulations = 1
+        self.timesActionTaken = 0
+        self.timeRewardReceived = 0
+        self.probability = self.getProbability()
+        self._num_rewards = 2
+        self.rollUCT = 0
+        self.expectedUtility = 0
+        self.childrenRemaining = [0,1,2,3]
+
+        if args.utility is not None:
+            self._utility = compile(args.utility, 'utility', 'eval')
+        else:
+            self._utility = None
+
+    def getProbability(self):
+        if self.timesActionTaken > 0 and self.timeRewardReceived > 0:
+            probability = self.timeRewardReceived / self.timesActionTaken
+            probability = probability# / self.numActions
+        else:
+            _prob_ = 1
+            probability = _prob_ #/ self.numActions
+
+        return probability
+
+   
+    def createChild(self, node, state, action, reward, done, health, _type_):
+        #node, node.state, action, node.row, node.col
+        child = Node(node, state, action, self.args,reward, done, health, _type_)
+
+        self.children.append(child)
+
+        return child
+
+    def scalarize_reward(self, rewards):
+        """ Return a scalarized reward from objective scores
+        """
+        if self._utility is None:
+            # Default scalarization, just a sum
+            return np.sum(rewards)
+        else:
+            # Use the user utility function#
+
+            return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(self._num_rewards)})
+
 
 
 class Learner(object):
@@ -306,30 +552,23 @@ class Learner(object):
         # self.dist_table = [100][8]
         s = 121
         a = 4
+        self.args = args
+        self._env = gym.make(args.env)
+        self.debug_file = open('debug', 'w') 
+        self.tree = Tree(0, self.args,self.debug_file)
         self.num_actions = 4
         self.num_timesteps = 200
         #self.random_action = 0
         self._treedict_ = {}
-        self.dict = {}           
+        self.dict = {}     
+        self.TS = {}      
+        self.args = args           
 
-        for i in range(s):
-            self.dict.update({i : {}}) 
-            self._treedict_.update({i : {}})             
-            for j in range(a):
-                #self.dict[i].update({j : {}})  
-                self.dict[i].update({j : {'count' : 0}}) 
-                #self._treedict_[i].update({j : {}})                         
-                #for k in range(s):
-                    #self.dict[i][j].update({k : {'count' : 0}})
-
-           
-
-        # Make environment
-        self.debug_file = open('debug', 'w')  
+        # Make environment 
 
         self.epsilon = 1.0
 
-        self._env = gym.make(args.env)
+        
         self._render = args.render
         self._return_type = args.ret
         self._extra_state = args.extra_state
@@ -352,90 +591,6 @@ class Learner(object):
             self._utility = compile(args.utility, 'utility', 'eval')
         else:
             self._utility = None
-
-        
-
-    def getResults(self, tree):
-
-        dist_rewards = []
-        dist_prob = []
-
-        def _getResults(tree):
-            if len(tree.children) == 0:
-                dist_rewards.append(tree.cumulative_rewards)
-                dist_prob.append(tree.probability)
-
-            for n in range(len(tree.children)):
-                _getResults(tree.children[n])
-
-        _getResults(tree)
-
-        return dist_rewards, dist_prob
-    
-
-    def rollOut(self, env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, parent, _all_, row, col):
-
-        # self.rollOut(self._env, action,env_state, 0, cumulative_rewards, self.timestep, 0)
-
-        _rewards_ = []
-        _probs_ = []
-
-        #cr = str(cumulative_rewards)
-        
-        #if cr in self._treedict_[state][action]:
-        if _all_ == False:
-            if action in self._treedict_[state]:
-                #_tree_ = self._treedict_[state][action][cr]
-                _tree_ = self._treedict_[state][action]
-                retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action, row, col)
-                
-                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)  
-                #retNode = self.getResults(_tree_)
-                #print("Tree Dictionary ::", self._treedict_[state][action], file = self.debug_file)
-
-            else:  
-                _tree_ = Node(env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, 0, parent, _all_, row, col, self.done)
-                #_tree_ = tree.createTree(state, _dict_, 0, _all_, row, col)             
-                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)   
-                #self._treedict_[state][action].update({cr : _tree_}) 
-                self._treedict_[state].update({action : _tree_}) 
-                retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action, row, col)
-
-        if _all_ == True:
-            cr = str(cumulative_rewards)
-            if cr in self._treedict_[state][action]:
-            #if action in self._treedict_[state]:
-                #_tree_ = self._treedict_[state][action][cr]
-                _tree_ = self._treedict_[state][action][cr]
-                retNode = _tree_._push_(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
-                
-                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)  
-                #retNode = self.getResults(_tree_)
-                #print("Tree Dictionary ::", self._treedict_[state][action], file = self.debug_file)
-
-            else:  
-                tree = Node(env, action, state, id, cumulative_rewards, timestep, unique_id, file, _dict_, 0, parent, _all_, self.done)
-                _tree_ = tree.createTree(state, _dict_, 0, _all_ )             
-                #retNode = _tree_.push(_tree_, cumulative_rewards, timestep, _dict_, 0, action)   
-                self._treedict_[state][action].update({cr : _tree_}) 
-                retNode = _tree_._push_(_tree_, cumulative_rewards, timestep, _dict_, 0, action)
-                #self._treedict_[state].update({action : _tree_}) 
-
-                    
-        
-        
-        _rewards_ = retNode[0] + _rewards_
-        _probs_ = retNode[1] + _probs_      
-        """
-        if state == 0:
-            print("Cumulative Reward : ", cumulative_rewards, file =self.debug_file)
-            print("Action :", action, file = self.debug_file)
-            print("Rewards :", _rewards_, file = self.debug_file)
-            print("Probs :", _probs_, file = self.debug_file) 
-            print("Probs Sum:", sum(_probs_), file = self.debug_file)
-        """
-
-        return _rewards_, _probs_
 
     def encode_state(self, state, timestep, accrued, reward):
         """ Encode a raw state from Gym to a Numpy vector
@@ -464,6 +619,8 @@ class Learner(object):
         #print(a, file = self.debug_file)
 
         for i in range(len(thresholds)):
+
+            #print(a[i], file = self.debug_file)
 
             thresholdA = min(a[i], thresholds[i])
             thresholdB = min(b[i], thresholds[i])
@@ -494,25 +651,25 @@ class Learner(object):
 
         bestActions.append(0)
 
-        
+        #print("A ", actionValues, file = self.debug_file)
         for a in range(len(actionValues)):
-            #print(bestActions, file = self.debug_file)
             compareResult = self.compare(actionValues[a], actionValues[bestActions[0]], thresholds)
 
             if compareResult > 0:
                 bestActions.clear()
                 bestActions.append(a)
-                bestProbs.clear()
-                bestProbs.append(actionProb[a])
+                #bestProbs.clear()
+                #bestProbs.append(actionProb[a])
 
             elif compareResult == 0:
                 bestActions.append(a)
-                bestProbs.append(a)
+                #bestProbs.append(a)
 
         if len(bestActions) > 1:
 
-            index = bestProbs.index(max(bestProbs))
-            return bestActions[index]
+            #index = bestProbs.index(max(bestProbs))
+            action = random.choice(bestActions)
+            return action
 
         else:
 
@@ -536,29 +693,79 @@ class Learner(object):
         else:
             # Use the user utility function
             return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(self._num_rewards)})   
+
+    def selectAction(self, method, rewards, probabilities, cumulative_rewards):
+
+        #print("Rewards :", rewards, file = self.debug_file)
+        #print("Probabilities :", probabilities, file = self.debug_file)
+
+        if method == "Expected Utility":
+            sumof = [0,0,0,0]
+            
+            for i in range(len(rewards)):
+
+                for j in range(len(rewards[i])):                    
+                    sumof[i] += sum([self.scalarize_reward((rewards[i][j][r]) * probabilities[i][j][r]) for r in range(len(rewards[i][j]))])
+
+            for i in range(len(sumof)):
+                sumof[i] +=  self.scalarize_reward(cumulative_rewards)
+                    
+            action = sumof.index(max(sumof))
+            #print("SumOf :", sumof, file = self.debug_file)
+
+        if method == "TLO":
+            thresholds = [124, -19]
+            actions = [0] * 4
+            for a in range(len(rewards)): 
+                for i in range(len(rewards[a])):
+                    actions[a] = rewards[a][i][self.selectTLOAction(rewards[a][i], probabilities, thresholds)]
+
+            #print("Actions ::", actions, file = self.debug_file)
+
+            action = self.selectTLOAction(actions, probabilities, thresholds)
+
+        if method == "Policy":
+            sumof = [0,0,0,0]
+            for i in range(len(rewards)):
+                val = -sys.maxsize
+                for j in range(len(rewards[i])):
+                    for k in range(len(rewards[i][j])):
+                        if self.scalarize_reward(rewards[i][j][k]) > val:
+                            val =  self.scalarize_reward(cumulative_rewards + rewards[i][j][k])
+                sumof[i] = val
+
+            action = sumof.index(max(sumof))
+            #print("Sumof ::", sumof, file = self.debug_file)
+
+        return action
+
+    def getXYfromState(self,state):
+    
+        basesForStateNo = [10, 10]
+        stateNo = [0,0]
+        # stateNo = 0
+        inputstateNo = state
+        j = 1
+        for i in range(2):
+
+            check = int(inputstateNo % basesForStateNo[i])
+            stateNo[j] = check
+            inputstateNo = int(inputstateNo / basesForStateNo[i])
+            j -= 1
+
+        return stateNo
+
     
 
-    def updateDictionary(self, env_state, action, new_env_state, rewards, _dict_):
-
-        _rewards_ = str(rewards)
-        
-        #if _rewards_ not in _dict_[env_state][action][new_env_state]:
-        #    _dict_[env_state][action][new_env_state].update({_rewards_: {'count': 0, 'reward': rewards}})
-        
-        if _rewards_ not in _dict_[env_state][action]:
-            _dict_[env_state][action].update({_rewards_: {'count': 0, 'reward': rewards}})
-        
-
-        return _dict_
 
     def run(self):
         
 
         """ Execute an option on the environment
         """
-        self.row, self.col, env_state = self._env.reset()
+        env_state = self._env.reset()
         done = False
-
+        self._num_rewards = 2
         cumulative_rewards = np.zeros(shape=(self._num_rewards,))
         rewards = np.zeros(shape=(self._num_rewards,))
         
@@ -570,183 +777,63 @@ class Learner(object):
         new_env_state = -1
 
         _all_ = False
-        action_selection = "TLO"
+        action_selection = 0
         self.num_actions = 4
         #self.row = 0
         #self.col = 0
         self.done = False
+        health = 0
         
-
+        self.tree.root = "Null"
+        a = 0
+        check = random.random()
+        #self.epsilon = 1
         while not self.done:
             
             state = env_state            
-            check = random.uniform(0, 1)
 
-            #print(self.epsilon, file = self.debug_file)
-            if check < self.epsilon:
-                # select random action
-                action = random.randint(0, self.num_actions - 1)
-            #    print("Random Action : " , action , file = self.debug_file)
+            action_rewards = []
+            action_prob = []                
+
+            self.tree.step(cumulative_rewards)
+            tree, testReward , testProbs, expectedUtility = self.tree.run()
+            if tree.root == "Null":
+                state = 0
+                x = 0
+                y = 0
             else:
+                x,y = self.getXYfromState(tree.root.state)         
+            
+            #if random.random() < 0.1:
+            #    action = random.randint(0,3)
+            #else:
 
-                action_rewards = []
-                action_prob = []
+            action = expectedUtility.index(max(expectedUtility))
 
-                for _action_ in range(self.num_actions): 
-                                   
-                    a = self.rollOut(self._env, _action_, env_state, 0, cumulative_rewards, self.timestep, 0,
-                                     self.debug_file, self.dict, True, _all_, self.row, self.col)                                     
-                    action_rewards.append(a[0])                        
-                    action_prob.append(a[1])    
-
-
-                chance = -1000000 
-                prob_chance = 0                  
-
-                
-
-                if action_selection == "TLO":
-                    thresholds = [3, -5]
-                    actionVectors = []
-                    actionProbs = []
-                    for _action_ in range(self.num_actions):
-                        #print("Check ::", action_rewards[_action_], file = self.debug_file)
-                        actionVector = self.selectTLOAction(action_rewards[_action_], action_prob[_action_], thresholds)
-                        #print("Action Vector ::", actionVector, file = self.debug_file)
-                        actionVectors.append(action_rewards[_action_][actionVector])
-                        actionProbs.append(action_prob[_action_][actionVector])
-
-                    #for _action_ in range(self.num_actions):
-                    action = self.selectTLOAction(actionVectors, actionProbs, thresholds)
+            #print("X :", x, "Y :", y, file = self.debug_file) 
+            #print("Action:", action, file = self.debug_file) 
+            #print("Rewards Action:: ", testReward, file = self.debug_file)
+            #print("probabilities ::", testProbs, file = self.debug_file)
+            #print("Expected Utility on each Node :", expectedUtility, file = self.debug_file)
+            
+            
+            
 
 
-
-
-                else: 
-                    for _action_ in range(self.num_actions):                   
-                        a = 0
-                        for reward in action_rewards[_action_]:
-                        
-                            scalarize_reward = self.scalarize_reward(cumulative_rewards)                        
-                            potential_reward = self.scalarize_reward(reward)
-                            utility = potential_reward - scalarize_reward
-
-                            prob = action_prob[_action_][a]      
-                            utility_chance = utility * prob                 
-
-                            """
-                            #Debug File Output ::
-                            print('Cumulative Rewards :: ', cumulative_rewards, file = self.debug_file)
-                            print('Potential Reward :: ', reward, file = self.debug_file)
-                            print('Action Examined :: ', _action_, file = self.debug_file)
-                            print('Scalarize Rewards', scalarize_reward, file=self.debug_file)
-                            
-                            print('Potential Rewards', potential_reward, file=self.debug_file)
-                            print('Utility ', utility, file=self.debug_file)
-                            print('Utility Chance ', utility_chance, file=self.debug_file)
-                            print('Reward ', reward, file=self.debug_file)
-                            print('Prob', prob, file=self.debug_file)
-                            print("Row : ", self.row, file = self.debug_file)
-                            print("Col : ", self.col, file = self.debug_file)
-                            print(" ", file = self.debug_file)
-                            """
-                            
-                                                
-
-                            # Standard Action Selection Technique : 0
-                            if action_selection == 0:
-                                if utility_chance < chance:
-                                    #if prob > prob_chance:
-                                    chance = utility_chance
-                                    prob_chance = prob                                
-                                    action = _action_
-
-                            if action_selection == 1:
-                                if utility >= chance and prob > prob_chance:
-                                    #if prob > prob_chance:
-                                    chance = utility
-                                    prob_chance = prob
-                                    #print('Chance ', chance, file=self.debug_file)
-                                    #print('Prob Chance ', prob_chance, file=self.debug_file)
-                                    #print('Action ', action, file=self.debug_file)
-                                    action = _action_  
-
-                            if action_selection == 2:
-                                if utility_chance >= chance:
-                                    #if prob > prob_chance:
-                                    chance = utility_chance
-                                    prob_chance = prob                                
-                                    action = _action_
-
-                            if action_selection == 3:
-                                if utility == 0:
-                                    if prob > prob_chance:
-                                        prob_chance = prob
-                                        action = _action_
-                                if utility > chance and prob > prob_chance:
-                                    chance = utility
-                                    prob_chance = prob 
-                                    action = _action_
-
-                            if action_selection == 4:
-                                val = potential_reward * prob
-                                if val > chance:
-                                    chance = potential_reward * prob
-                                    action = _action_
-
-                            
-                                
-
-                            a += 1
-
-
-
-                if action == -10:
-                    print('Random Action', file=self.debug_file)
-                    self.debug_file.flush()
-                    action = random.randint(0, 3)
-
-            if len(self._aspace) > 1:
-                # Choose each of the factored action depending on the composite action
-                actions = [0] * len(self._aspace)
-                a = action
-
-                for i in range(len(actions)):
-                    actions[i] = a % self._aspace[i].n
-                    a //= self._aspace[i].n
-
-                new_env_state, rewards, self.timestep, self.done, self.row, self.col, __ = self._env.step(actions)
-            else:
-                # Simple scalar action
-                new_env_state, rewards, self.timestep, self.done, self.row, self.col, __ = self._env.step(env_state, action, self.timestep, self.row, self.col)
-
-                #print("Is Row : ", self.row, file = self.debug_file)
-                #print("Is Col : ", self.col, file = self.debug_file)
-
-            #print("Done : ", done, file = self.debug_file)
-            if self._render:
-                self._env.render()
+            env_state, rewards, node, done = self.tree.takeAction(action)
 
             cumulative_rewards += rewards
-            
-            
-            self.dict = self.updateDictionary(env_state, action, new_env_state, rewards, self.dict)
-            
-            #self.dict[env_state][action][new_env_state]['count'] += 1
-            #self.dict[env_state][action][new_env_state][str(rewards)]['count'] += 1
+            self.done = done
 
-            #print("Action 1 Reward :", self.dict[1][1][1], file = self.debug_file)
-            #print("Action 0 Reward :", self.dict[0][0][0], file = self.debug_file)
-            self.dict[env_state][action]['count'] += 1
-            self.dict[env_state][action][str(rewards)]['count'] += 1
+            if len(cumulative_rewards) > 2:
 
-            
-            env_state = new_env_state
+                if cumulative_rewards[1] <= -100 or health <= -100:
+                    cumulative_rewards[1] = -100
+                    self.done = True
+                    tree.reset()
 
-            # Mark episode boundaries
+            a += 1
 
-        # print("Prob", self.prob_time_table[env_state][timestep][:], file = self.debug_file)
-        # previous_culmulative_rewards = cumulative_rewards
         return cumulative_rewards
 
 def main():
@@ -801,12 +888,12 @@ def main():
                 #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
                 scalarized_avg = learner.scalarize_reward(avg)
 
-                if i < 0:
+                if i < 2:
                     learner.epsilon = 1.0
                 else:
-                    learner.epsilon = learner.epsilon * 0.99
-                    if learner.epsilon < 0.001:
-                        learner.epsilon = 0.001
+                    learner.epsilon = learner.epsilon * 0.9999
+                    if learner.epsilon < 0.1:
+                        learner.epsilon = 0.1
 
 
 
@@ -815,10 +902,11 @@ def main():
                     time = datetime.time(datetime.now())
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
 
-                    print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, file = f)
+                    print("Percentage Completed...", r, "% ", "Run : ", run, "Time Elapsed : ", time_elapsed, "Average Reward : ", scalarized_avg, "Epsilon :", learner.epsilon, file = f)
                     f.flush()
 
-                print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
+                print("Cumulative reward:", rewards, file=f)
+                #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
                 #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
                 runData.append(scalarized_avg)
                 #print("Run Data:", runData, file = f)
