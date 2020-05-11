@@ -69,32 +69,27 @@ class Tree:
         
 
     def step(self, cumulative_reward):
-        start = 0
         import random
         self.num_expansions = 0
 
-
         def findExpansionSpot(node):  
-
-            rollOut(node)
 
             if node.done == True:
                 return node
 
-            if node.isleaf == True:
+            if node.isleaf == True:                
                 node = self.expand(node)
                 return node            
             
             node = self.UCT(node)
-            return findExpansionSpot(node)
-           
+            return findExpansionSpot(node)           
 
         def rollOut(node):
             self.simulate(node)        
 
-        while self.num_expansions < 4:
+        while self.num_expansions < 50:
 
-            node = self.root          
+            node = self.root    
             node = findExpansionSpot(node)
             rollOut(node)
 
@@ -126,35 +121,38 @@ class Tree:
         return child
 
     def stepsToRoot(self,node):
-        step = -1
+        step = 0
 
-        while node.parent != "Null":
+        if node.done == True:
             node = node.parent
+
+        while node != "Null":
+            
             step += 1
+            node = node.parent
 
         return step
 
 
     def UCT(self, node):
 
-        c = 1000
-        
+        c = 50
+
         
         x = -sys.maxsize
         uct = [0] * len(node.children)
         sumValue = 0
         a = 0
 
-        for child in node.children: 
-            #print(child.timesVisited, file = self.file)
+        for child in node.children:
+
             if child.timesVisited == 0:
                 uct[a] = sys.maxsize
             else:
-
                 uct[a] = (child.rollUCT / child.timesVisited +  c * np.sqrt (2 * np.log(node.timesVisited) / child.timesVisited ))
-            a += 1
 
-    
+            a += 1
+        
         bestActions = []
 
         for i in range(len(uct)):
@@ -171,16 +169,9 @@ class Tree:
             index = bestActions[0]
 
         #index = uct.index(max(uct))
-        #print("Index :", index, file = self.file)
+
         move = node.children[index]
 
-
-
-
-        if random.random() < 0.0:
-            move = node.children[random.randint(0,len(node.children) - 1)]
-            
-        #print("UCT", uct, file = self.file)
         return move
 
 
@@ -192,29 +183,20 @@ class Tree:
         estProb = 0
         numActions = 4
         done = False
-        time = 0
-        _timer_ = 100
         state = node.state
-        action = node.action
-        #row = node.row
-        #col = node.col
         prob = 1
         health = 0
         _done_ = False
 
         if node.done == True:
-
            
-            cumulative_reward += node.reward            
-
+            cumulative_reward += node.reward
             probability = node.getProbability()
-            #self.backPropogation(node, cumulative_reward, probability)
-            #return
 
         else:
             a = 0  
 
-            while _done_ == False and health > -100:
+            while _done_ == False:
 
                 action = random.randint(0, 3)
                 
@@ -229,16 +211,15 @@ class Tree:
                     if cumulative_reward[1] <= -100:
                         cumulative_reward[1] = -100
                         done == True
+
                 if a == 0:
                     probability = node.getProbability()
+                    a += 1
                 else:
                     probability = probability * node.getProbability()
 
                 #print("Prob :", prob, file = self.file)
                 state = next_state
-
-                time += 1
-                a += 1
                 _done_ = done
 
             if len(cumulative_reward) > 2:
@@ -256,7 +237,9 @@ class Tree:
 
     def backPropogation(self, node, cumulative_reward, probability):
         
-        a = 0          
+        a = 0     
+
+        """
 
         if node.done == True:
             
@@ -265,13 +248,13 @@ class Tree:
             node.rollUCT += node.scalarize_reward(cumulative_reward) * 1
 
             node.timesVisited += 1
-            node = node.parent  
-            
-                   
+            node = node.parent 
+        """
+                
 
         while node != self.root:            
            
-            cumulative_reward = cumulative_reward# + node.reward
+            #cumulative_reward = cumulative_reward + node.reward
             probability = probability * node.getProbability()
             
             if len(cumulative_reward) > 2:
@@ -284,9 +267,12 @@ class Tree:
 
             node.timesVisited += 1
             node = node.parent
+        
+
 
         if node == self.root:
-            cumulative_reward = cumulative_reward# + node.reward
+
+            #cumulative_reward = cumulative_reward + node.reward
             probability = probability * node.getProbability()
             
             if len(cumulative_reward) > 2:
@@ -297,10 +283,11 @@ class Tree:
             node.probabilities.append(probability)
             node.rollUCT += node.scalarize_reward(cumulative_reward) * 1
 
-            node.timesVisited += 1
+            node.timesVisited += 1     
+        
+        
             
         return
-
     
 
     def run(self):
@@ -309,24 +296,26 @@ class Tree:
         childrenRewards = [[] for x in range(4)]
         childrenProbabilities = [[] for x in range(4)]    
         expectedUtility = [None] * len(node.children)
+        nodes = [None] * len(node.children)
 
-        for child in node.children:
-            
+        a = 0
+        for child in node.children:            
 
             childrenRewards[child.action].append(child.rewards)
             childrenProbabilities[child.action].append(child.probabilities)             
 
-            expectedUtility[child.action] = child.rollUCT / child.timesVisited 
+            nodes[a] = child 
+            expectedUtility[a] = child.rollUCT / child.timesVisited
+            a += 1
 
 
-        return self, childrenRewards, childrenProbabilities, expectedUtility
+        return self, childrenRewards, childrenProbabilities, expectedUtility, nodes
     
 
     def reset(self):
 
         self.root = self.node
         self.CR = [0,0]
-        #self.timesVisited += 1
 
         return
 
@@ -354,25 +343,20 @@ class Tree:
         if self.numRewards == 3:
             next_state, reward, done, health, __ = self.env.step(node.state, action, node.health)
         else:
-            next_state, reward, done, __ = self.env.step(node.state, action)
-
-        
+            next_state, reward, done, __ = self.env.step(node.state, action)        
         flag = 0
         
-        a = 0
-
-        
+        a = 0       
         
         for _node_ in node.children:
             if _node_.action == action:
                 _node_.timesActionTaken += 1                        
-                if any((reward == q).all() for q in node.childChanceRewards[action]):
+                if any((reward == q).all() for q in self.root.childChanceRewards[action]):
                     comparison = reward == _node_.reward
                     #print("Node State", node.state, file = self.file)
                     if comparison.all():
                         self.root = _node_
-                        a += 1
-                        
+                        a += 1                      
 
                         #_node_.health = health
                         _node_.timeRewardReceived += 1
@@ -387,8 +371,7 @@ class Tree:
             self.root = _node_
             _node_.health = health
             _node_.timesActionTaken += 1
-            _node_.timeRewardReceived += 1            
-
+            _node_.timeRewardReceived += 1  
 
         return next_state, reward, node, done
 
@@ -655,7 +638,6 @@ class Learner(object):
                 sumof[i] = val
 
             action = sumof.index(max(sumof))
-            #print("Sumof ::", sumof, file = self.debug_file)
 
         return action
 
@@ -673,9 +655,7 @@ class Learner(object):
             inputstateNo = int(inputstateNo / basesForStateNo[i])
             j -= 1
 
-        return stateNo
-
-    
+        return stateNo    
 
 
     def run(self):
@@ -705,6 +685,7 @@ class Learner(object):
         health = 0
         
         #self.tree.root = "Null"
+        self.tree.reset()
         a = 0
         check = random.random()
         #self.epsilon = 1
@@ -717,40 +698,23 @@ class Learner(object):
             action_prob = []                
 
             self.tree.step(cumulative_rewards)
-            tree, testReward , testProbs, expectedUtility = self.tree.run()
+            tree, testReward , testProbs, expectedUtility, nodes = self.tree.run()
 
+            x, y = self.getXYfromState(state)
+
+            print("X :", x, "Y :", y, file = self.debug_file) 
             #print("Rewards Action:: ", testReward, file = self.debug_file)
+            #print(" ", file = self.debug_file)
             #print("probabilities ::", testProbs, file = self.debug_file)
-            #print("Expected Utility on each Node :", expectedUtility, file = self.debug_file)
+            print("Expected Utility on each Node :", expectedUtility, file = self.debug_file)
              
             
             if random.random() < 0.0:
                 action = random.randint(0,3)
             else:
-                action = expectedUtility.index(max(expectedUtility))
-
-            self.epsilon = self.epsilon * 0.99
-            #z = 0
-            #for i in expectedUtility:
-            #    expectedUtility[z] += self.scalarize_reward(cumulative_rewards)
-            #    z += 1
-
-            x, y = self.getXYfromState(state)
-
-
-           
-
-            
-
-            
-
-            #print("X :", x, "Y :", y, file = self.debug_file) 
-            #print("Action:", action, file = self.debug_file) 
-            
-            
-            
-            
-
+                index = expectedUtility.index(max(expectedUtility))
+                node = nodes[index]
+                action = node.action
 
             env_state, rewards, node, done = self.tree.takeAction(action)
 
@@ -766,19 +730,18 @@ class Learner(object):
                     tree.reset()
 
             a += 1
-            if a > 100:
-                self.done = True
-                tree.reset
+            #if a > 1000:
+            #    self.done = True
+            #    tree.reset()
         #print("Rewards Action:: ", testReward, file = self.debug_file)
+
         tree.reset()
-
-
         return cumulative_rewards
 
 def main():
     # Parse parameters
     num_runs = 1
-    episodes = 100000
+    episodes = 20000
     
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
 
