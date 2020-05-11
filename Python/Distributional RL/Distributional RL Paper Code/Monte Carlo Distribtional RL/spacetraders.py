@@ -1,7 +1,3 @@
-
-
-
-
 import gym
 import numpy as np
 
@@ -25,39 +21,7 @@ class SpaceTraders(gym.Env):
 
         self.state = 0
 
-        return self.state
-
-    def isValid(self, row, col):
-
-        valid = True
-
-        if row > self.depths[col]:
-            valid = False
-
-        return valid
-    
-
-    def getRewards(self, row, col):
-        rewards = np.zeros((2,))
-
-        rewards[self.TIME] = -1
-        rewards[self.TREASURE] = 0
-
-        #print("Row ", row, file = self.debug_file)
-        #print("Col ", col, file = self.debug_file)
-        #print("Depths : ", self.depths[col], file = self.debug_file)
-
-        if row == self.depths[col]:
-            rewards[self.TREASURE] = self.treasure[col]
-
-        return rewards
-
-    def isTerminal(self, row, col):
-
-        if row == self.depths[col]:
-            return True
-        else:
-            return False
+        return self.state    
 
 
     def step(self, state, action):
@@ -66,7 +30,7 @@ class SpaceTraders(gym.Env):
         done = False
 
         if action > 2:
-        	return -10000, [-10000, -100000], True
+        	return -1000000, [-1000000, -1000000], True
 
     	# Timestep 1
         # Planet A -> Planet B
@@ -99,6 +63,8 @@ class SpaceTraders(gym.Env):
 			done == True
 
 			return state, rewards, done, {}
+
+
 
 		#Timestep 2
 		#Planet B -> Planet A
