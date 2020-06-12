@@ -77,9 +77,7 @@ def main():
 
 	area1 = integrals(data_sorted1, p1, limits)
 	area2 = integrals(data_sorted2, p2, limits)
-	area3 = integrals(data_sorted3, p3, limits)
-
-	print(area3)
+	area3 = integrals(data_sorted3, p3, limits)	
 
 	ssd10 = np.array(area2) - np.array(area1)
 	ssd01 = np.array(area1) - np.array(area2)
