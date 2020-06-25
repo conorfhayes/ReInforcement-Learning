@@ -86,22 +86,23 @@ class Tree:
         import random
         self.num_expansions = 0
 
-        def findExpansionSpot(node):  
+        def findExpansionSpot(node, cumulative_reward):  
             if node.parent == "Null":
                 pass
             elif node.type == "chance":
-                node = self.runSimulate(node)
+                node, cumulative_reward = self.runSimulate(node, cumulative_reward)
 
             if node.type == "decision" and node.done == True:
                 return node
 
             if node.isleaf == True:                
-                node = self.expand(node)
+                node, cumulative_reward = self.expand(node, cumulative_reward)
                 return node            
             
             #node = self.UCT(node)
-            node = random.choice(node.children)
-            return findExpansionSpot(node)           
+            node = self.thompsonSampling(node, cumulative_reward)
+            #node = random.choice(node.children)
+            return findExpansionSpot(node, cumulative_reward)           
 
         def rollOut(node):
             self.simulate(node)        
@@ -109,14 +110,32 @@ class Tree:
         while self.num_expansions < 50:
 
             node = self.root 
-            node = findExpansionSpot(node)
+            node = findExpansionSpot(node, cumulative_reward)
             rollOut(node)
 
             self.num_expansions += 1      
 
         return 
 
-    def runSimulate(self, node):
+    def TESTscalarize_reward(self, rewards):
+        """ Return a scalarized reward from objective scores
+        """
+        #print("Scalarise R", rewards, file = self.debug_file)
+        if rewards[0] >= 0.88:
+            return rewards[1]
+        else:
+            return -1000000000
+
+    def TESTscalarize_reward1(self, rewards):
+        """ Return a scalarized reward from objective scores
+        """
+        #print("Scalarise R", rewards, file = self.debug_file)
+        if rewards[0] >= 1:
+            return rewards[1]
+        else:
+            return -1000
+
+    def runSimulate(self, node, cumulative_reward):
 
         state, reward, done, __ = self.env.step(node.state, node.action)
 
@@ -152,10 +171,93 @@ class Tree:
 
 
 
-        return n
+        return n, cumulative_reward + reward
+
+    def thompsonSampling(self, node, cumulative_reward):
+        n = 1000
+        samples = [0] * 3
+        _samples_ = -sys.maxsize
+        bestNode = 0
+        rewards = [[] for x in range(3)]
+        probabilities = [[] for x in range(3)]
+        #action = 0
+        for child in node.children:
+            _l_ = [0] * 2
+            if len(child.rewards) == 0:
+                return child            
+
+            for children in child.children:
+                #print("Action", child.action, file = self.file)
+                #print("Child Data", children._data_, file = self.file)
+                for a in children._data_:
+                    #print("Child Data", children._data_, file = self.file)
+
+                    rewards[child.action].append(children._data_[a]['reward'] + cumulative_reward)
+                    
+                    if len(children.children) > 0:
+                        probabilities[child.action].append(children._data_[a]['probability'] * (1 / children.numActions))
+                    else:
+                        probabilities[child.action].append(children._data_[a]['probability'] * (1))
+
+             
+        #print("Rewards 0", rewards[0], file = self.file)
+        #print("Probabilities 0", probabilities[0], file = self.file)
+        #print("Sum 0", sum(probabilities[0]), file = self.file)
+        #print(" ", file = self.file)
+
+        #print("Rewards 1", rewards[1], file = self.file)
+        #print("Probabilities 1", probabilities[1], file = self.file)
+        #print("Sum 1", sum(probabilities[1]), file = self.file)
+        #print(" ", file = self.file)
+
+        #print("Rewards 2", rewards[2], file = self.file)
+        #print("Probabilities 2", probabilities[2], file = self.file)
+        #print("Sum 2", sum(probabilities[2]), file = self.file)
+        #print(" ", file = self.file)
+        
+        samples = [[] for x in range(3)] 
+        minVal = -sys.maxsize
+
+        for child in node.children:
+            #_sample_ = []
+            #print("Round", round(sum(probabilities[child.action]), 1), file = self.file)
+            check = round(sum(probabilities[child.action]), 2)
+            if check < 1.0 or check > 1.0:
+                #print("Hello", file = self.file)
+                sample_indices = np.random.choice(len(child.rewards), n) 
+                sample = [child.rewards[j] for j in sample_indices]
 
 
-    def expand(self, node):
+            else:
+                _probabilities_ = [round(num,5) for num in probabilities[child.action]]
+                #print("Here",rewards[i], file = self.file)
+                #print(1/3, file = self.file)
+                sample = random.choices(population = rewards[child.action],weights= _probabilities_, k =n)
+            
+            _sample_ = [self.TESTscalarize_reward1(j) for j in sample]
+            #print("Before", sample[0:10], file = self.file)
+            #print("After", _sample_[0:10], file = self.file)
+            meanSample = sum(_sample_) / n
+            #print("Mean Sample", meanSample, file = self.file)
+
+
+            child.samples_mean.append(meanSample)
+
+            meanSample_indices = np.random.choice(len(child.samples_mean))
+            #print(meanSample_indices, file = self.file)
+            randomSample = child.samples_mean[meanSample_indices]
+            #print(meanSample, file = self.file)
+            #print("Sample Mean :", child.samples_mean, file = self.file)
+
+            if randomSample > minVal:
+                minVal = randomSample
+                bestNode = child        
+        
+
+        return bestNode
+
+
+    def expand(self, node, cumulative_reward):
 
         action = random.choice(node.childrenRemaining)
         #self, node, state, action, args, _type_
@@ -185,7 +287,7 @@ class Tree:
         else:
             node.isleaf = True
 
-        return child
+        return child, cumulative_reward + reward
 
     def stepsToRoot(self,node):
         step = np.array([0,0])
@@ -317,36 +419,118 @@ class Tree:
                 if cumulative_reward[1] <= -100:
                     cumulative_reward[1] = -100
 
+        #self.distributionBackPropogation(node, cumulative_reward, probability)
         self.backPropogation(node, cumulative_reward, probability)
 
 
         return
 
-    def backPropogation(self, node, cumulative_reward, probability):
+    def distributionBackPropogation(self, node, cumulative_reward, probability):
         
         a = 0
+        move = 0
+        oldNode = "Null"
+        #print("Node Data", node._data_, file = self.file)
+        flag = False
+        distRewards = []
+        distProps = []
         if node.done == True:
             node.timesVisited += 1
             node.parent.timesActionTaken[node.action] += 1
             #cumulative_reward = cumulative_reward
             node.rewards.append(cumulative_reward)
             strCumulativeReward = str(cumulative_reward)
+            #node.samples_mean.append(cumulative_reward)
 
             #node.rewards.append(cumulative_reward)
             node.probabilities.append(probability)
             node.rollUCT += node.scalarize_reward(cumulative_reward) * probability
+            node.probability = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
+            #print("Data", node._data_, file = self.file)
 
             if str(cumulative_reward) not in node._data_:
-                node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward} })
+                node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
             else:
                 node._data_[str(cumulative_reward)]['probability'] = probability
+                node._data_[str(cumulative_reward)]['scaled probability'] = probability * (1 / node.numActions)
 
+            #print("Hello **************", file = self.file)
+
+            oldNode = node
             node = node.parent
+            move += 1
+
+
+            if node.type == "chance" and flag == False:
+                #print("Data", node._data_, file = self.file)
+                node.distback_props = []
+                node.distback_rewards = []
+                for reward in node._data_:
+                    #print("Parent", node.parent.parent, file = self.file)
+                    print("Cumulative Reward", cumulative_reward, file = self.file)
+                    print("Check ", node._data_[str(reward)]['reward'], file = self.file)
+                    print("Check Data ", node._data_, file = self.file)
+                    node.distback_rewards.append(node._data_[str(reward)]['reward'])
+                    node.distback_props.append(node._data_[str(reward)]['probability'])
+
+                distRewards = node.distback_rewards
+                distProps = node.distback_props
+                flag = True
+
+            
+                
+                #print("Chance Check ", node._data_, file = self.file)
+                #print("Cumulative Reward", cumulative_reward, file = self.file)
+
         
 
         while node != self.root.parent:
 
             cumulative_reward = cumulative_reward + node.reward
+
+            if node.parent == self.root and node.type == "chance":
+                #print("Hello!", file = self.file)
+                for child in node.children:
+                    #print("Number of Children", len(node.children), file = self.file)
+                    if child != oldNode:
+                        #if oldNode.done == True and child.done == True:
+                            #print("Rewards ", distRewards, file = self.file)
+                            #print("Type", child.type, file = self.file)
+                            #print("Data", child._data_, file = self.file)
+                            #print(" ", file = self.file)
+                        #else:
+                        #print("Node State", node.state, file = self.file)
+                        #print("Rewards ", distRewards, file = self.file)
+                        #for reward in distRewards:
+
+                        node.distributionalBackpropDict.update({str(cumulative_reward) : {'rewards' : distRewards.copy()}})
+                        if move > 1:
+                            #print("Data", child._data_, file = self.file)
+                            for el in child._data_:
+                                res = not child._data_[el]
+                                #print(res, file = self.file)
+                                if res == True:
+                                    #print("Why??????", child._data_[el], file = self.file)
+
+                                    pass
+                                else:
+                                    for reward in child._data_[el]: 
+                                        #print("Checker",child._data_[el][reward], file = self.file)
+                                        reward_update = node.distributionalBackpropDict[str(cumulative_reward)]['rewards']
+                                        reward_update.append(child._data_[el][reward]['reward'])
+                                        #print("RU", reward_update, file = self.file)
+                                        node.distributionalBackpropDict.update({str(cumulative_reward) : {'rewards' : reward_update}})
+                                #print("Checker", child._data_[el], file = self.file)
+                        
+                        #print("Backprop Distribution ", node.distributionalBackpropDict, file = self.file)
+                        print(" ", file = self.file)
+
+
+            #print("Before", distRewards, file= self.file)
+            
+            a = 0      
+
+            
 
             if node.parent == "Null":
                 pass
@@ -357,7 +541,12 @@ class Tree:
                     prob = 1
                 else:
                     prob = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
-                    node.probability = prob
+                    node.setProbability(prob)
+
+                for each in distRewards:
+                    distRewards[a] = distRewards[a] + node.reward
+                    distProps[a] *= prob
+                    a += 1
 
                 probability = prob * probability
                 #probability = probability / 3
@@ -374,10 +563,112 @@ class Tree:
             node.rollUCT += node.scalarize_reward(cumulative_reward) * probability
 
             if str(cumulative_reward) not in node._data_:
-                node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward} })
+                #print("Before", node._data_, file = self.file)
+                node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
+                #print("After", node._data_, file = self.file)
             else:
                 node._data_[str(cumulative_reward)]['probability'] = probability #/ node.numActions
+                node._data_[str(cumulative_reward)]['scaled probability'] = probability * (1 / node.numActions)
             
+            oldNode = node
+            node = node.parent
+            if node != "Null":
+                node.distback_props = distProps
+                node.distback_rewards = distRewards
+            move += 1
+        
+            
+        return
+    
+
+    def backPropogation(self, node, cumulative_reward, probability):
+        
+        a = 0
+        #print("Node Data", node._data_, file = self.file)
+        if node.done == True:
+            node.timesVisited += 1
+            node.parent.timesActionTaken[node.action] += 1
+            #cumulative_reward = cumulative_reward
+            node.rewards.append(cumulative_reward)
+            strCumulativeReward = str(cumulative_reward)
+            #node.samples_mean.append(cumulative_reward)
+
+            #node.rewards.append(cumulative_reward)
+            node.probabilities.append(probability)
+            node.rollUCT += node.scalarize_reward(cumulative_reward) * probability
+            node.probability = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
+
+
+            if str(cumulative_reward) not in node._data_:
+
+                if node.parent.parent == self.root:
+                    node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability} })
+                else:
+                    node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
+            else:
+
+                node._data_[str(cumulative_reward)]['probability'] = probability
+
+                if node.parent.parent == self.root:
+                    node._data_[str(cumulative_reward)]['scaled probability'] = probability
+                else:
+                    node._data_[str(cumulative_reward)]['scaled probability'] = probability * (1 / node.numActions)
+            
+            node = node.parent
+        
+
+        while node != self.root.parent:
+
+            cumulative_reward = cumulative_reward + node.reward
+            #
+
+            if node.parent == "Null":
+                pass
+            else:
+
+                node.parent.timesActionTaken[node.action] += 1
+                if node.type == "chance":
+                    prob = 1
+                else:
+                    prob = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
+                    node.setProbability(prob)
+                    #print("Prob Update", node.probability, file = self.file)
+
+                probability = prob * probability
+                #probability = probability / 3
+                node.parent.timesActionTaken[node.action] += 1
+            
+            if len(cumulative_reward) > 2:
+                if cumulative_reward[1] <= -100:
+                    cumulative_reward[1] = -100
+
+            node.timesVisited += 1           
+
+            node.rewards.append(cumulative_reward)
+            node.probabilities.append(probability)
+            node.rollUCT += node.scalarize_reward(cumulative_reward) * probability
+
+            if str(cumulative_reward) not in node._data_:
+                if node.parent == "Null":
+                    node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
+                elif node.parent.parent == self.root:
+                    node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability} })
+                else:
+                    node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
+            
+                #node._data_.update({str(cumulative_reward) : {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability * (1 / node.numActions)} })
+            else:
+                node._data_[str(cumulative_reward)]['probability'] = probability
+
+                if node.parent == "Null":
+                    node._data_[str(cumulative_reward)]['scaled probability'] = probability * (1 / node.numActions)
+                elif node.parent.parent == self.root:
+                    node._data_[str(cumulative_reward)]['scaled probability'] = probability
+                else:
+                    node._data_[str(cumulative_reward)]['scaled probability'] = probability * (1 / node.numActions)
+            
+            #print("Node Data", node._data_, file = self.file)
+            #print(" " , file = self.file)
             node = node.parent
         
             
@@ -397,6 +688,7 @@ class Tree:
         rewards = [[] for x in range(numActions)]
         probabilities = [[] for x in range(numActions)]
         _probs_ = [[] for x in range(numActions)]
+        scaled_probabilities = [[] for x in range(numActions)]
 
         
 
@@ -418,15 +710,21 @@ class Tree:
             expectedUtility[child.action] += child.rollUCT / child.timesVisited
             allData[child.action].append(child.data)
         
+            #for action in child._data_:
             for each in child._data_:
-                #print("Test", child._data_, file = self.file)
-                rewards[child.action].append(child._data_[each]['reward'])
-                probabilities[child.action].append(child._data_[each]['probability'])
+                #print("Test", each, file = self.file)
+                rewards[child.action].append(child._data_[str(each)]['reward'])
+                probabilities[child.action].append(child._data_[str(each)]['probability'])
+                scaled_probabilities[child.action].append(child._data_[str(each)]['scaled probability'])
+
+                #rewards[child.action].append(child._data_[each]['reward'])
+                #probabilities[child.action].append(child._data_[each]['probability'])
+                #scaled_probabilities[child.action].append(child._data_[each]['scaled probability'])
 
             a += 1
 
 
-        return self, childrenRewards, childrenProbabilities, expectedUtility, nodes, node.data, allData, rewards, probabilities
+        return self, childrenRewards, childrenProbabilities, expectedUtility, nodes, node.data, allData, rewards, probabilities, scaled_probabilities
     
 
     def reset(self):
@@ -488,6 +786,8 @@ class Tree:
             #_node_.timesActionTaken += 1
             _node_.timeRewardReceived += 1 
 
+        probability = self.distTable[node.state][action][next_state][str(reward)]['count'] / self.distTable[node.state][action]['count']
+
         """     
         
         for _node_ in node.children:
@@ -517,7 +817,7 @@ class Tree:
             _node_.timeRewardReceived += 1  
         """
 
-        return next_state, reward, node, done
+        return next_state, reward, node, done, probability
 
 
 class chanceNode:
@@ -527,8 +827,11 @@ class chanceNode:
         #self.health = health
         self.type = "chance"
         self.parent = node
+        self.samples_mean = []
         self.state = state
         self.numActions = 3
+        self.distback_rewards = []
+        self.distback_props = []
         self.action = action
         self.children = []
         self.reward = [0,0]
@@ -540,9 +843,20 @@ class chanceNode:
         self.rewards = []
         self.chanceRewards = []
         self.probabilities = []
+        self.distributionalBackpropDict = {}
         #self.chanceRewards.append(reward)
         self.childChanceRewards = {0 : [], 1 : [], 2 : []}
         self._data_ = {}
+        #for x in range(3):
+        #    self._data_.update({x : {}})
+
+        self.distribution = {}
+        
+        for x in range(3):
+            self.distribution.update({x : {}})
+
+        self.distributionData = {}
+            
         self.chanceNode = False
         self.expectedReturn = -sys.maxsize
         #self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
@@ -552,7 +866,7 @@ class chanceNode:
         self.numSimulations = 1
         #self.timesActionTaken = 0
         self.timeRewardReceived = 0
-        self.probability = self.getProbability()
+        self.probability = 1
         self._num_rewards = 2
         self.rollUCT = 0
         self.expectedUtility = 0
@@ -575,6 +889,8 @@ class chanceNode:
 
         return probability
 
+    
+
     def createChild(self, node, state, action, reward, done, health, _type_):
         #node, node.state, action, node.row, node.col
         child = decisionNode(node, state, action, self.args,reward, done, health, _type_)
@@ -583,14 +899,27 @@ class chanceNode:
 
         return child
 
-    def getExpectedReturn(self):
+    def getExpectedReturn(self, node):
         var = 0
+        rewards =[]
+        probabilities = []
+        scales = []
+        scalr = [0,0]
+        reward = node.reward
+        probability = node.probability        
+
         for child in self.children:
-            if child.reward[0] * child.probability >= 0.88:
-                var += self.reward[1] * child.probability
-            else:
-                var += -sys.maxsize
-        return var
+            rewards.append(child.reward)
+            probabilities.append(child.probability)
+            scalr += (reward + child.reward) * (child.probability * probability)
+            scales.append(scalr)
+
+
+        if scalr[0] >= 0.88:
+            var = scalr[1]
+        else:
+            var = -1000
+        return var, rewards, probabilities, scales
 
 
 
@@ -614,10 +943,13 @@ class decisionNode:
         self.type = "decision"
         self.state = state
         self.numActions = 3
+        self.distback_rewards = []
+        self.distback_props = []
         self.action = action
         self.children = []
         self.reward = reward
         self.isleaf = True
+        self.samples_mean = []
         self.args = args
         self.env = gym.make(self.args.env)
         self.timesVisited = 0
@@ -628,6 +960,11 @@ class decisionNode:
         self.chanceRewards.append(reward)
         self.childChanceRewards = {0 : [], 1 : [], 2 : []}
         self._data_ = {}
+
+
+        #for x in range(3):
+        #    self._data_.update({x : {}})
+
         self.chanceNode = False
         self.probability = 1
         #self.childChanceRewards = {0 : [], 1 : [], 2 : [], 3 : []}
@@ -659,6 +996,9 @@ class decisionNode:
             probability = _prob_ #/ self.numActions
 
         return probability
+
+    def setProbability(self, probability):
+        self.probability = probability
 
     def createChild(self, node, state, action, reward, done, health, _type_):
         #node, node.state, action, node.row, node.col
@@ -947,6 +1287,15 @@ class Learner(object):
         else:
             return -1000000000
 
+    def TESTscalarize_reward1(self, rewards):
+        """ Return a scalarized reward from objective scores
+        """
+        #print("Scalarise R", rewards, file = self.debug_file)
+        if rewards[0] == 1:
+            return rewards[1]
+        else:
+            return -1000
+
     def optimalRoute(self, node, tree):
         self.node = node
         self.rewards = []
@@ -984,23 +1333,52 @@ class Learner(object):
 
                 if len(outcome.children) == 0:  
                     backup(outcome) 
-                    
+                
                 else:
                     _val_ = -sys.maxsize
+                    
                     for action in outcome.children:
-                        val = action.getExpectedReturn()
-                        if val >= _val_:
+                        val, testA, testB, scales = action.getExpectedReturn(outcome)
+                        #print("Child Rewards", testA, file = self.debug_file)
+                        #print("Child Probabilities", testB, file = self.debug_file)
+                        #print("Child Scales", scales, file = self.debug_file)
+                        #print(" ", file = self.debug_file)
+                        if val > _val_:
                             _val_  = val
                             _node_ = action
+                    
+                    find(_node_)                    
 
-                    find(_node_)              
+                    
 
+        def finder(node, action):            
+            
+            for outcome in node.children:
+
+                if len(outcome.children) == 0:  
+                    backup(outcome) 
+                
+                else:
+                    #_val_ = -sys.maxsize
+                    
+                    for _node in outcome.children:
+                        if _node.action == action:
+                            _node_ = _node
+                    
+                    finder(_node_, action)
+                        
+
+                        #finder(outcome)  
+
+
+        #for action in range(3):
+            #finder(node,action)
         find(node)
 
 
         return self.rewards, self.probabilities
 
-    def selectAction(self, method, tree, rewards, probabilities, cumulative_rewards):
+    def selectAction(self, method, tree, rewards, probabilities, cumulative_rewards, cumulative_probability):
 
         #print("Rewards :", rewards, file = self.debug_file)
         #print("Probabilities :", probabilities, file = self.debug_file)
@@ -1046,29 +1424,71 @@ class Learner(object):
             node = tree.root
             rewards = []
             probabilities = []
+            actions = []
 
             for child in node.children:
                 rewards.append(self.optimalRoute(child, tree)[0])
                 probabilities.append(self.optimalRoute(child, tree)[1])
+                actions.append(child.action)
             
-            #print("Rewards", rewards, file = self.debug_file)
-            #print("Probabilities", probabilities, file = self.debug_file)
+            #print("Rewards Checker", rewards, file = self.debug_file)
+            #print("Probabilities Checker", probabilities, file = self.debug_file)
             #utility = 0
             val = -sys.maxsize
+            utilities = []
+
+
+            
             bestAction = -10
+            avg_reward = []
             for action in range(3):
                 a = 0
                 utility = 0
+                scalar_reward = [0,0]
                 for reward in rewards[action]:
+                    #print("Reward", reward, file = self.debug_file)
+                    #print("Probability", probabilities[action][a], file = self.debug_file)
+                    #print("Scaled", reward * probabilities[action][a], file = self.debug_file)
 
-                    utility += self.TESTscalarize_reward((cumulative_rewards + reward) * probabilities[action][a])
+                    scalar_reward += (cumulative_rewards + reward) * (cumulative_probability * probabilities[action][a])
+                    #print("Scalar Reward", scalar_reward, file = self.debug_file)
+
+                    #utility += self.TESTscalarize_reward((reward) * probabilities[action][a])
+                    #print("Utility", utility, file = self.debug_file)
                     a += 1
-                if utility >= val:
-                    val = utility
-                    bestAction = action
+                utility = self.TESTscalarize_reward1(scalar_reward)
 
-        print("Best Action", bestAction, file = self.debug_file)
-        return bestAction
+                #if utility > val:
+                    #val = utility
+                    #bestAction = actions[action]
+                utilities.append(utility)
+                avg_reward.append(scalar_reward)
+
+            index = utilities.index(max(utilities))
+            action = actions[index]
+
+        if method == "Bootstrap Thompson":
+            node = tree.root
+            minVal = -sys.maxsize
+
+            means = [[] for x in range(3)]
+
+            for child in node.children:
+
+                meanSample_indices = np.random.choice(len(child.samples_mean))            
+                randomSample = child.samples_mean[meanSample_indices]
+
+                print("Random Sample", randomSample, file = self.debug_file) 
+
+                mean = sum(child.samples_mean) / len(child.samples_mean)
+                means[child.action].append(mean)           
+
+                if randomSample > minVal:
+                    minVal = randomSample
+                    action = child.action
+
+            print("Means", means, file = self.debug_file)
+        return action
 
     def getXYfromState(self,state):
     
@@ -1096,6 +1516,7 @@ class Learner(object):
         done = False
         self._num_rewards = 2
         cumulative_rewards = np.zeros(shape=(self._num_rewards,))
+        cumulative_probability = 1
         rewards = np.zeros(shape=(self._num_rewards,))
         
         timestep = 0
@@ -1127,10 +1548,11 @@ class Learner(object):
             action_prob = []                
 
             self.tree.step(cumulative_rewards)
-            tree, testReward , testProbs, expectedUtility, nodes, nodeDist, allData, a, b = self.tree.run()
+            tree, testReward , testProbs, expectedUtility, nodes, nodeDist, allData, a, b, scaled_probs = self.tree.run()
 
             #x, y = self.getXYfromState(state)
-            action = self.selectAction("Optimal Policy", tree, testReward, testProbs, cumulative_rewards)
+            #print("Cumulative Rewards", cumulative_rewards, file = self.debug_file)
+            action = self.selectAction("Bootstrap Thompson", tree, testReward, testProbs, cumulative_rewards, cumulative_probability)
 
             #print("X :", x, "Y :", y, file = self.debug_file) 
             #print("State", state, file = self.debug_file)
@@ -1143,12 +1565,32 @@ class Learner(object):
             #print("Expected Utility on each Node :", expectedUtility, file = self.debug_file)
             #print("Distribution ", nodeDist, file = self.debug_file)
             #print("Check", testReward, file = self.debug_file)
-            #print("Rewards", a, file = self.debug_file)
-            #print("Probabilities", b, file = self.debug_file)
+            #print("*** Start ***", file = self.debug_file)
+            #print("Rewards 0 ", a[0], file = self.debug_file)
+            #print("Probabilities 0", b[0], file = self.debug_file)
+            #print("Scaled Probabilities", scaled_probs[0], file = self.debug_file)
+            #print(" ", file = self.debug_file)
+
+            #print("Rewards 1 ", a[1], file = self.debug_file)
+            #print("Probabilities 1", b[1], file = self.debug_file)
+            #print("Scaled Probabilities 1", scaled_probs[1], file = self.debug_file)
+            #print("Sum SP1", sum(scaled_probs[1]), file = self.debug_file)
+            #print(" ", file = self.debug_file)
+
+            #print("Rewards 2 ", a[2], file = self.debug_file)
+            #print("Probabilities 2", b[2], file = self.debug_file)
+            #print("Scaled Probabilities 2", scaled_probs[2], file = self.debug_file)
+            #print("Sum SP2", sum(scaled_probs[2]), file = self.debug_file)
+            #print(" ", file = self.debug_file)
+
+            #print("End", file = self.debug_file)
+            
+            #print("Action", action, file = self.debug_file)
+            #print("Probabilities ALl", b, file = self.debug_file)
             #print("Sum Prob 0", sum(b[0]), file = self.debug_file)
             #print("Sum Prob 1", sum(b[1]), file = self.debug_file)
             #print("Sum Prob 2", sum(b[2]), file = self.debug_file)
-            print(" ", file = self.debug_file)
+            #print(" ", file = self.debug_file)
              
             
             if random.random() < 0.0:
@@ -1164,9 +1606,11 @@ class Learner(object):
 
                 #print("Action", action, file = self.debug_file)
 
-            env_state, rewards, node, done = self.tree.takeAction(action)
+            env_state, rewards, node, done, probability = self.tree.takeAction(action)
 
             cumulative_rewards += rewards
+            cumulative_probability *= probability
+            #print("Cumulative Probability", cumulative_probability, file = self.debug_file)
             self.done = done
 
 
@@ -1184,8 +1628,8 @@ class Learner(object):
 
 def main():
     # Parse parameters
-    num_runs = 1
-    episodes = 20000
+    num_runs = 5
+    episodes = 2000
     
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
 
@@ -1221,6 +1665,8 @@ def main():
         try:
             #old_dt = datetime.datetime.now()
             avg = np.zeros(shape=(learner._num_rewards,))
+            utility = 0
+            avgUtility = 0
 
             for i in range(episodes):
                 rewards, allRewards, allProbabilities = learner.run()
@@ -1233,6 +1679,10 @@ def main():
 
                 #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
                 scalarized_avg = learner.scalarize_reward(avg)
+                if rewards[0] >= 0.88:
+                    utility += rewards[1]
+                else:
+                    utility += -1000
 
                 if i < 2:
                     learner.epsilon = 1.0
@@ -1241,7 +1691,7 @@ def main():
                     if learner.epsilon < 0.1:
                         learner.epsilon = 0.1
 
-
+                avgUtility = utility / (i + 1)
 
                 if i % 1 == 0 and i >= 0:
                     r = (i/episodes) * 100
@@ -1260,7 +1710,7 @@ def main():
                 #print("Cumulative reward:", rewards, file=f)
                 #print("Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg, file=f)
                 #print(args.name, "Cumulative reward:", rewards, "; average rewards:", avg, scalarized_avg)
-                runData.append(scalarized_avg)
+                runData.append(avgUtility)
                 #print("Run Data:", runData, file = f)
                 f.flush()
 
