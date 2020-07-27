@@ -84,12 +84,21 @@ class Tree:
         self.distTable = {}
         self.artificialSamples = []
 
-        for i in range(2000):
-            choice = [0, 10]
-            r1 = random.randint(0, 1000)
-            r2 = random.randint(0, 10)
-            r3 = random.randint(1, 1000)
-            self.artificialSamples.append([r1, 0, -r3])
+        self.coverageSet = []
+        self.hypervolume = []
+
+        self.coverage0 = False
+        self.coverage1 = False
+        self.coverage2 = False
+        self.coverage3 = False
+        self.coverage4 = False
+        self.coverage5 = False
+        self.coverage6 = False
+        self.coverage7 = False
+        self.coverage8 = False
+        self.coverage9 = False
+
+        
 
         for x in range(200):
             self.distTable.update({x : {'count' : 0}})
@@ -104,6 +113,7 @@ class Tree:
         self.num_expansions = 0
 
         def findExpansionSpot(node, cumulative_reward):  
+            #print(node, file = self.file)
             if node.parent == "Null":
                 pass
             
@@ -116,26 +126,25 @@ class Tree:
 
             if node.isleaf == True and node.type == "decision":                
                 node, cumulative_reward = self.expand(node, cumulative_reward)
-                #for i in range(10000):
-                    #choice = [0, 10]
-                    #r1 = random.randint(0, 1000)
-                    #r2 = random.randint(0, 10)
-                    #r3 = random.randint(1, 1000)
                 node.rewards = self.artificialSamples
+                #node.samples_mean = node.rewards
                 #print(node.rewards, file = self.file)
                 
                 return node            
             
             
             #node = self.UCT(node)
+
             node = self.thompsonSampling(node, cumulative_reward)
             #node = random.choice(node.children)
             return findExpansionSpot(node, cumulative_reward)           
 
         def rollOut(node):
-            self.simulate(node)        
+            
+            self.simulate(node)
 
-        while self.num_expansions < 50:
+        #start = time.time()
+        while self.num_expansions < 10:
 
             node = self.root 
             node = findExpansionSpot(node, cumulative_reward)
@@ -143,7 +152,7 @@ class Tree:
             self.count += 1
 
             self.num_expansions += 1      
-
+        end = time.time()
         return 
 
     def TESTscalarize_reward(self, rewards):
@@ -180,7 +189,7 @@ class Tree:
         flag = 0
 
         if self.numRewards == 3:
-            state, reward, done, __ = self.env.step(node.parent.state, node.action, cumulative_reward[1])
+            state, reward, done, __ = self.env.step(node.state, node.action, cumulative_reward[1])
         else:
             state, reward, done, __ = self.env.step(node.state, node.action)
 
@@ -191,17 +200,13 @@ class Tree:
                 if comparison.all():
                     n = _node_
 
-        self.updateDistributionTable(node.parent.state, node.action, reward, state, node)
-        
-       
-
-
+        self.updateDistributionTable(node.state, node.action, reward, state, node)
     
         if flag == 0:                      
             _node_ = node.createChild(node, state, node.action, reward, done, reward, True)            
             #node.parent.childChanceRewards[node.action].append(reward)
             _node_.timeRewardReceived += 1
-            self.updateDistributionTable(node.parent.state, node.action, reward, state, _node_)
+            self.updateDistributionTable(node.state, node.action, reward, state, _node_)
             n = _node_
 
         #if random.random() < 0.1:
@@ -331,28 +336,60 @@ class Tree:
         
         randomNum = random.random()
         bestNode = -10
+        c = 30
+        #n = 1500
+        n = 250
+        #n = 1000
         #action = 0
         minVal = -sys.maxsize
-        
-        
+        arr = np.array([124, 0, -1])
+        checkReward = []
+        checkCount = []
+        sample = np.random.choice(len(node.onlineRewards) + n, len(node.children))
+        #print(sample, file = self.file)
+        #print(len(node.children), file = self.file)
         for child in node.children:
 
-            
-            sample = np.random.choice(len(child.samples_mean))
+            #print(child.rewards, file = self.file)
+            #sample = np.random.choice(len(child.onlineRewards))
+            #print(sample, file = self.file)
             #randomSample = self.scalarize_reward(np.random.choice(child.samples_mean[sample]) + cumulative_reward)
-            randomSample = self.scalarize_reward(child.samples_mean[sample])# + self.scalarize_reward(cumulative_reward)
-            
-            if randomSample > minVal:
-                minVal = randomSample
-                bestNode = child  
+            #print()
+            #print(child.onlineRewards[sample] / (child.count[sample] ), file = self.file)
+            #print(child.onlineRewards[sample], file = self.file)
+            #print(child.artificialRewards, file = self.file)
+            if child.timesVisited == 0:
+                randomSample = sys.maxsize
+            else:
+                #print(child.artificialRewards, file = self.file)
+                checkReward = np.vstack((child.onlineRewards, child.artificialRewards))
+
+                checkCount = np.concatenate((child.count, child.artificialCount))
+                #print(child.onlineRewards, file = self.file)
+                #checkCount = child.count
+                #for i in range(n):
+                    #checkReward = np.vstack((checkReward, arr))
+                    #checkReward.append(arr)
+                    #checkCount = np.append(checkCount, 1)
+                    
+                #randomSample = self.scalarize_reward(child.onlineRewards[sample[child.action]] / child.count[sample[child.action]])# + self.scalarize_reward(cumulative_reward))
+                #print(checkReward, file = self.file)
+                randomSample = self.scalarize_reward(checkReward[sample[child.action]] / checkCount[sample[child.action]])
+                randomSample = randomSample #+ 60 * np.sqrt (2 * np.log(node.timesVisited) / child.timesVisited)
+                #print(randomSample, file = self.file)
+                
+                if randomSample > minVal:
+                    minVal = randomSample
+                    bestNode = child  
 
        
-        if randomNum < 0.05:
+        if randomNum < 0:
             #self.simulate(np.random.choice())
             bestNode = np.random.choice(node.children)
 
-        self.epsilon = self.epsilon * 0.999
-       
+        #distRewards = bestNode.distribution['reward']
+        #distProbability = bestNode.distribution['probability']
+        #self.onlineBootstrap(bestNode, distRewards, distProbability, 1)
 
         return bestNode
 
@@ -421,6 +458,7 @@ class Tree:
 
         node.distributionTable[str(reward)]['count'] += 1
         node.distributionTable['count'] += 1
+        #print(node.distributionTable, file = self.file)
 
         
 
@@ -494,7 +532,7 @@ class Tree:
 
             _node_ = node
 
-            while _done_ == False and a < 50:
+            while _done_ == False and a <= 30:
 
                 action = random.randint(0, 3)
                 
@@ -509,8 +547,8 @@ class Tree:
                 cumulative_reward = reward + cumulative_reward
 
                 if len(cumulative_reward) > 2:
-                    if cumulative_reward[1] <= -100:
-                        cumulative_reward[1] = -100
+                    if cumulative_reward[1] <= -10:
+                        cumulative_reward[1] = -10
                         done == True
 
                 #prob = (self.distTable[state][action][next_state][str(reward)]['count'] / self.distTable[state][action]['count']) #* (1/4)
@@ -533,6 +571,365 @@ class Tree:
 
         return
 
+    def hypervolumeCalc(self, cumulative_reward):
+
+        #if node.parent == "Null":
+        cumulative_reward = np.array(cumulative_reward)
+        #print(cumulative_reward, file = self.file)
+        comparison0 = cumulative_reward == np.array([1, 0, -1])
+        #print(comparison0, file = self.file)
+        comparison1 = cumulative_reward == np.array([2, 0, -3])
+        comparison2 = cumulative_reward == np.array([3, 0, -5])
+        comparison3 = cumulative_reward == np.array([5, 0, -7])
+        comparison4 = cumulative_reward == np.array([8, 0, -8])
+        comparison5 = cumulative_reward == np.array([16, 0, -9])
+        comparison6 = cumulative_reward == np.array([24, 0, -13])
+        comparison7 = cumulative_reward == np.array([50, 0, -14])
+        comparison8 = cumulative_reward == np.array([74, 0, -17])
+        comparison9 = cumulative_reward == np.array([124, 0, -19])
+
+        #comparison0 = cumulative_reward == np.array([1, 0, -1])
+        comparison21 = cumulative_reward == np.array([34, 0, -3])
+        comparison22 = cumulative_reward == np.array([58, 0, -5])
+        comparison23 = cumulative_reward == np.array([78, 0, -7])
+        comparison24 = cumulative_reward == np.array([86, 0, -8])
+        comparison25 = cumulative_reward == np.array([92, 0, -9])
+        comparison26 = cumulative_reward == np.array([112, 0, -13])
+        comparison27 = cumulative_reward == np.array([116, 0, -14])
+        comparison28 = cumulative_reward == np.array([122, 0, -17])
+        comparison29 = cumulative_reward == np.array([124, 0, -19])
+            
+
+
+        if comparison0.all() == True and self.coverage0 == False:
+            self.hypervolume.append(2)
+            self.coverageSet.append([1,-1])
+            self.coverage0 = True
+
+        if comparison1.all() == True and self.coverage1 == False:
+            self.hypervolume.append(68)
+            self.coverageSet.append([2, -3])
+            self.coverage1 = True
+
+        if comparison2.all() == True and self.coverage2 == False:
+            self.hypervolume.append(116)
+            self.coverageSet.append([3, -5])
+            self.coverage2 = True
+
+        if comparison3.all() == True and self.coverage3 == False:
+            self.hypervolume.append(78)
+            self.coverageSet.append([5, -7])
+            self.coverage3 = True
+
+        if comparison4.all() == True and self.coverage4 == False:
+            self.hypervolume.append(86)
+            self.coverageSet.append([8, -8])
+            self.coverage4 = True
+
+        if comparison5.all() == True and self.coverage5 == False:
+            self.hypervolume.append(368)
+            self.coverageSet.append([16, -9])
+            self.coverage5 = True
+
+        if comparison6.all() == True and self.coverage6 == False:
+            self.hypervolume.append(112)
+            self.coverageSet.append([24, -13])
+            self.coverage6 = True
+
+        if comparison7.all() == True and self.coverage7 == False:
+            self.hypervolume.append(348)
+            self.coverageSet.append([50, -14])
+            self.coverage7 = True
+
+        if comparison8.all() == True and self.coverage8 == False:
+            self.hypervolume.append(244)
+            self.coverageSet.append([72, -17])
+            self.coverage8 = True
+
+        if comparison9.all() == True and self.coverage9 == False:
+            self.hypervolume.append(744)
+            self.coverageSet.append([124, -19])
+            self.coverage9 = True
+
+
+
+
+        if comparison21.all() == True and self.coverage1 == False:
+            self.hypervolume.append(68)
+            self.coverageSet.append([34, -3])
+            self.coverage1 = True
+
+        if comparison22.all() == True and self.coverage2 == False:
+            self.hypervolume.append(116)
+            self.coverageSet.append([58, -5])
+            self.coverage2 = True
+
+        if comparison23.all() == True and self.coverage3 == False:
+            self.hypervolume.append(78)
+            self.coverageSet.append([78, -7])
+            self.coverage3 = True
+
+        if comparison24.all() == True and self.coverage4 == False:
+            self.hypervolume.append(86)
+            self.coverageSet.append([86, -8])
+            self.coverage4 = True
+
+        if comparison25.all() == True and self.coverage5 == False:
+            self.hypervolume.append(368)
+            self.coverageSet.append([92, -9])
+            self.coverage5 = True
+
+        if comparison26.all() == True and self.coverage6 == False:
+            self.hypervolume.append(112)
+            self.coverageSet.append([112, -13])
+            self.coverage6 = True
+
+        if comparison27.all() == True and self.coverage7 == False:
+            self.hypervolume.append(348)
+            self.coverageSet.append([116, -14])
+            self.coverage7 = True
+
+        if comparison28.all() == True and self.coverage8 == False:
+            self.hypervolume.append(244)
+            self.coverageSet.append([122, -17])
+            self.coverage8 = True
+
+        if comparison29.all() == True and self.coverage9 == False:
+            self.hypervolume.append(744)
+            self.coverageSet.append([124, -19])
+            self.coverage9 = True
+
+        return
+
+    def onlineBootstrap(self, node, distRewards, distProbability, n, cumulative_reward):
+        a = 1
+        n = 10
+        holder = []
+        _rewards_ = []
+        sample_indices = []
+        sample = []
+        #distRewards = node.distribution['reward']
+        #distProbability = node.distribution['probability']
+        holder = [i for i in range(len(distRewards))]
+        _rewards_ = np.random.choice(holder, 1, p=distProbability)
+        _rewards_ = [distRewards[i] for i in _rewards_]
+        #_rewards_ = sum(_rewards_) / n
+        _sample_ = sample 
+        #r = 2
+        r = 4
+        ar = np.random.randint(r, size = (len(node.onlineRewards)))
+        node.onlineRewards[ar == 1] = np.add(node.onlineRewards[ar == 1] , _rewards_[0])
+        node.count[ar == 1] += 1
+
+        #node.sample = np.vstack((node.onlineRewards, node.artificialRewards))
+        #node.sampleCount = np.concatenate((node.count, node.artificialCount))
+        
+
+        node.samples_mean = node.onlineRewards
+
+        return
+
+
+    def distributionSample(self, node, distRewards, distProbability, n):
+        a = 100
+        n = 100
+        holder = []
+        _rewards_ = []
+        sample_indices = []
+        sample = []
+        
+        holder = [i for i in range(len(distRewards))]
+        _rewards_ = np.random.choice(holder, a, p=distProbability)
+        #_rewards_ = [distRewards[i] for i in _rewards_]
+        _rewards_ = list(map(lambda x: distRewards[x], _rewards_)) 
+
+        for i in range(len(_rewards_)):
+            node.rewards.append(_rewards_[i])
+
+        sample_indices = np.random.choice(len(node.rewards), n )
+        #sample = [node.rewards[j] for j in sample_indices]
+        sample = list(map(lambda x: node.rewards[x], sample_indices)) 
+        #print("Sample", sample, file = self.file)
+        #print(sample, file = self.file)
+
+        
+        #print("B4 Sample Scalarized", sample, file = self.file)
+        #_sample_ = [self.scalarize_reward(j) for j in sample]
+        _sample_ = sample        
+        
+        meanSample = sum(_sample_) / n
+        #print(meanSample, file = self.file)
+        node.samples_mean.append(meanSample)
+        #print("Samples Mean", node.samples_mean, file = self.file)
+
+
+        return
+
+    def distributionCompare(self, node, oldNode, distRewards, distProbability, cumulative_reward, startNode):
+       
+        if node.type == "chance":
+            #print("Check 0ff", distRewards, file = self.file)
+            #print("Check 0ff", distProbability, file = self.file)
+            xx = 0
+            array = []
+            childProbDistribution = []
+            #print(len(node.children), file = self.file)
+            holderRewards = []
+            holderProbabilities = []
+
+            if len(node.distribution.keys()) == 0:
+                #print(bool(node.distribution), file = self.file)
+                node.distribution.update({'reward' : distRewards})
+                node.distribution.update({'probability' : distProbability})
+
+            prob = node.distributionTable[str(oldNode.reward)]['count'] / node.distributionTable['count']
+            for reward in distRewards:
+                    holderRewards.append(reward)
+            for probs in distProbability:
+                holderProbabilities.append(prob * probs)
+
+            if len(node.children) > 1:
+                for child in node.children:
+                    
+                    if child == oldNode:
+                        pass
+                        #print()                    
+                        #print("Check 1", distRewards, file = self.file)
+                        #print("Check 1", distProbability, file = self.file)
+                        
+
+                    else:
+                        childRewardDistribution = child.distribution['reward']# + node.reward
+                        childProbDistribution = child.distribution['probability']
+                        #print("b4 Test 3", distRewards, file = self.file)
+                        #print("childProbDistribution", childProbDistribution, file = self.file)
+                        #print("DistRewards", distRewards, file = self.file)
+                        #print("childRewardDistribution", childRewardDistribution, file = self.file)
+                        #print("childProbDistribution", childProbDistribution, file = self.file)
+                        
+                        prob = node.distributionTable[str(child.reward)]['count'] / node.distributionTable['count']
+                        #print("Prob", prob, file = self.file)
+                        childProbDistribution = [x * prob for x in childProbDistribution]
+                        for i in childRewardDistribution:
+                            holderRewards.append(i)
+                        for i in childProbDistribution:
+                            holderProbabilities.append(i)
+                            #print("Check 2 Append", i, file = self.file)
+                            #print("Check 2 Append", distRewards, file = self.file)
+                        #print("Check 2", distRewards, file = self.file)
+                        #print("Check 2", distProbability, file = self.file)
+                    xx += 1
+                #if len(childProbDistribution) > 0:
+                    #distProbability = np.append(distProbability, childProbDistribution)
+                    
+            
+            distRewards = holderRewards
+            distProbability = holderProbabilities  
+            #print("XX", xx ,file = self.file)
+
+            #print("Len???", distProbability, file = self.file)
+
+            if len(node.distribution.keys()) == 0:
+                #print(bool(node.distribution), file = self.file)
+                node.distribution.update({'reward' : distRewards})
+                node.distribution.update({'probability' : distProbability})
+
+                #distRewards = node.distribution['reward']
+                #distProbability = node.distribution['probability']
+
+                #print("Check 3", distRewards, file = self.file)
+                #print("Check 3", distProbability, file = self.file)
+            
+            elif len(node.distribution['reward']) != len(distRewards) and node == startNode.parent:
+                #print("Check", node.distribution['reward'], file = self.file)
+                node.distribution.update({'reward' : distRewards})
+                node.distribution.update({'probability' : distProbability})
+
+                #distRewards = node.distribution['reward']
+                #distProbability = node.distribution['probability']
+
+                #print("Check 4", distRewards, file = self.file)
+                #print("Check 4", distProbability, file = self.file)
+
+            else:
+                sum1 = 0
+                sum2 = 0
+                #print("Check 5", distRewards, file = self.file)
+                #print("Check 5", distProbability, file = self.file)
+                #print("Check 5", node.distribution['reward'], file = self.file)
+                #print("Check 5", node.distribution['probability'], file = self.file)
+                for val in range(len(node.distribution['reward'])):
+                    #print("Index out of range", node.distribution['reward'], file = self.file)
+                    #print("Index out of range",node.distribution['probability'], file = self.file)
+
+                    sum1 += self.scalarize_reward(node.distribution['reward'][val]) * node.distribution['probability'][val]
+                    
+                for val in range(len(distRewards)):
+                    #print("Here", distRewards, file = self.file)
+                    #print("Scala", self.scalarize_reward(distRewards[val])  * distProbability[val], file = self.file)
+                    sum2 += self.scalarize_reward(distRewards[val]) * distProbability[val]
+
+                #print(sum1, sum2, file = self.file)
+                if sum2 > sum1:
+                    node.distribution.update({'reward' : distRewards})
+                    node.distribution.update({'probability' : distProbability})
+
+                    distRewards = node.distribution['reward']
+                    distProbability = node.distribution['probability']
+
+                    #print("Check 6", distRewards, file = self.file)
+                    #print("Check 6", distProbability, file = self.file)
+
+                #else:
+
+                    #distRewards = node.distribution['reward']
+                    #distProbability = node.distribution['probability']
+
+        else:
+            if len(node.distribution.keys()) == 0:
+                #print(bool(node.distribution), file = self.file)
+                node.distribution.update({'reward' : distRewards})
+                node.distribution.update({'probability' : distProbability})
+                
+                distRewards = node.distribution['reward']
+                distProbability = node.distribution['probability']
+
+                #print("Check 7", distRewards, file = self.file)
+                #print("Check 7", distProbability, file = self.file)
+            else:
+                sum1 = 0
+                sum2 = 0
+                #print("Check 8", distRewards, file = self.file)
+                #print("Check 8", distProbability, file = self.file)
+                #print("Check 8", node.distribution['reward'], file = self.file)
+                #print("Check 8", node.distribution['probability'], file = self.file)
+                for val in range(len(node.distribution['reward'])):
+                    
+                    sum1 += self.scalarize_reward(node.distribution['reward'][val]) * node.distribution['probability'][val]
+                    
+                for val in range(len(distRewards)):
+
+                    sum2 += self.scalarize_reward(distRewards[val]) * distProbability[val]
+
+                if sum2 > sum1:
+
+                    node.distribution.update({'reward' : distRewards})
+                    node.distribution.update({'probability' : distProbability})
+
+                    distRewards = node.distribution['reward']
+                    distProbability = node.distribution['probability']
+                    #print("Here...", file = self.file)
+                    #print("Check 9", distRewards, file = self.file)
+                    #print("Check 9", distProbability, file = self.file)
+                #else:
+                    #distRewards = node.distribution['reward']
+                    #distProbability = node.distribution['probability']
+
+        #print("Here...", node.distribution['reward'], file = self.file)
+        #print("Here...", node.distribution['probability'], file = self.file)
+        #print("Here dist", distRewards, file = self.file)
+        #print("Here Prob", distProbability, file = self.file)
+        return distRewards, distProbability
     
 
     def distributionBackPropogation(self, node, cumulative_reward):
@@ -544,237 +941,58 @@ class Tree:
         #node.probability = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
         node.probability = node.distributionTable[str(node.reward)]['count'] / node.distributionTable['count']
         #print("CR Check", cumulative_reward, file = self.file)
-        distRewards = [cumulative_reward]
+        
         #print("Dist Rewards", distRewards, file = self.file)
-        distProbability = [node.probability]
-        startNode = node
+        distProbability = [1]
+        startNode  = node
+        oldNode = node
 
-        if node.done == True:
+        if len(cumulative_reward) > 2:
+            if cumulative_reward[1] <= -10:
+                cumulative_reward[1] = -10
+                #done == True
 
-            node.timesVisited += 1
-            node.parent.timesActionTaken[node.action] += 1
+        distRewards = [cumulative_reward]
 
-            strCumulativeReward = str(cumulative_reward)
+        while node != self.root:
+            distRewards, distProbability = self.distributionCompare(node, oldNode, distRewards, distProbability, cumulative_reward, startNode)
+            #print("In while", distRewards, file = self.file)
+            self.onlineBootstrap(node, distRewards, distProbability, 1, cumulative_reward)
 
-            #node.rewards.append(cumulative_reward)
-            node.probabilities.append(probability)
-            node.rollUCT += node.scalarize_reward(cumulative_reward) #* probability
-            #node.rewards.append(self.scalarize_reward(cumulative_reward))
-            #node.probability = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count']
-            node.probability = node.distributionTable[str(node.reward)]['count'] / node.distributionTable['count']
-            probability = node.probability
-            distRewards = [cumulative_reward]
+            oldNode = node
+            if node.type == "decision" and node.done == False:                
+                cumulative_reward = cumulative_reward + node.reward
+                distRewards = [node.reward + i for i in distRewards]
 
-            distProbability = [1]
-
-            node.data[str(cumulative_reward)] = {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability }
-            if len(node.distribution.keys()) == 0:
-                node.distribution.update({'reward' : distRewards})
-                node.distribution.update({'probability' : distProbability})
-            else:
-                sum1 = 0
-                sum2 = 0
-                for val in range(len(node.distribution['reward'])):
-                    #print(reward, file = self.file)
-                    sum1 += self.scalarize_reward(node.distribution['reward'][val]) * node.distribution['probability'][val]
-                    
-                for val in range(len(distRewards)):
-                    sum2 += self.scalarize_reward(distRewards[val]) * distProbability[val]
-
-                if sum2 > sum1:
-                    node.distribution.update({'reward' : distRewards})
-                    node.distribution.update({'probability' : distProbability})
-
-                    distRewards = node.distribution['reward']
-                    distProbability = node.distribution['probability']
-                #else:
-                    #distRewards = node.distribution['reward']
-                    #distProbability = node.distribution['probability']
-
-            #distRewards = node.distribution['reward']
-            #distProbability = node.distribution['probability']
-            #print("Dist Checker", distRewards[0], file = self.file)
-
-            #_rewards_ = node.rewards
-            holder = [i for i in range(len(distRewards))]
-            #print(self.distTable[node.parent.state][node.action][node.state], file = self.file)
-            #print(distProbability, file = self.file)
-            _rewards_ = np.random.choice(holder, 10, p=distProbability)
-            _rewards_ = [distRewards[i] for i in _rewards_]
-            node.rewards.append(_rewards_)
-            #print("Node rewards",node.rewards, file = self.file)
             #print(distRewards, file = self.file)
             #print(distProbability, file = self.file)
-            sample_indices = np.random.choice(len(node.rewards), n )
-            sample = [node.rewards[j] for j in sample_indices]
-            #print(sample, file = self.file)
-
-            
-            _sample_ = [self.scalarize_reward(j) for j in sample]
-            #_sample_ = [j for j in sample]
-            meanSample = sum(_sample_) / n
-            node.samples_mean.append(meanSample)
+            node.timesVisited += 1
             oldNode = node
             node = node.parent
-            
-
-        while node != self.root.parent:
-
-            cumulative_reward = cumulative_reward + node.reward            
-            distRewards = [node.reward + i for i in distRewards]
-
-            if node.parent == "Null":
-                pass
-            else:
-
-                node.parent.timesActionTaken[node.action] += 1
-
-                if node.type == "chance":
-
-                    xx = 0
-                    array = []
-                    childProbDistribution = []
-                    for child in node.children:
-                        
-                        if child == oldNode:
-                            prob = node.distributionTable[str(child.reward)]['count'] / node.distributionTable['count']
-                            distProbability = [x * prob for x in distProbability]
-                            
-
-                        else:
-                            childRewardDistribution = child.distribution['reward']# + node.reward
-                            #print("b4 Test 3", distRewards, file = self.file)
-                            for i in childRewardDistribution:
-                                distRewards.append(i)
-                            #distRewards = distRewards.append(np.array(childRewardDistribution))
-                            #print("after Test 3", distRewards, file = self.file)
-                            childProbDistribution = child.distribution['probability']
-                            prob = node.distributionTable[str(child.reward)]['count'] / node.distributionTable['count']
-                            childProbDistribution = [x * prob for x in childProbDistribution]
-                
-                    if len(childProbDistribution) > 0:
-                        #distProbability = np.append(distProbability, childProbDistribution)
-                        for i in childProbDistribution:
-                            distProbability.append(i)
-                        
-                    #print("End", file = self.file)
-
-                    #print("Len???", distRewards, file = self.file)
-
-                    if len(node.distribution.keys()) == 0:
-                        #print(bool(node.distribution), file = self.file)
-                        node.distribution.update({'reward' : distRewards})
-                        node.distribution.update({'probability' : distProbability})
-                    
-                    elif len(node.distribution['reward']) != len(distRewards) and node == startNode.parent:
-                        node.distribution.update({'reward' : distRewards})
-                        node.distribution.update({'probability' : distProbability})
-
-                        distRewards = distRewards
-                        distProbability = distProbability
-
-                    else:
-                        sum1 = 0
-                        sum2 = 0
-                        for val in range(len(node.distribution['reward'])):
-                            #print(reward, file = self.file)
-                            sum1 += self.scalarize_reward(node.distribution['reward'][val]) * node.distribution['probability'][val]
-                            
-                        for val in range(len(distRewards)):
-                            sum2 += self.scalarize_reward(distRewards[val]) * distProbability[val]
-
-                        if sum2 > sum1:
-                            node.distribution.update({'reward' : distRewards})
-                            node.distribution.update({'probability' : distProbability})
-
-                            distRewards = node.distribution['reward']
-                            distProbability = node.distribution['probability']
-
-                        #else:
-                            #distRewards = node.distribution['reward']
-                            #distProbability = node.distribution['probability']
-
-                    
-
-                    #print("Check Rewards", distRewards, file = self.file)
-                    #print("Check Probabilities", distProbability, file = self.file)
-                    #node.distribution.update({'reward' : distRewards})
-                    #print("After", node.distribution, file = self.file)
-                    #node.distribution.update({'probability' : distProbability})
 
 
-                else:                    
-                    #prob = self.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / self.distTable[node.parent.state][node.action]['count'] #* (1 / node.numActions)
-                    prob = 1
-                    #node.probability = node.distributionTable[str(node.reward)]['count'] / node.distributionTable['count']
-                    #print(self.distTable[node.parent.state][node.action][node.state], file = self.file)
-                    distRewards = distRewards# + node.reward
-                    distProbability = distProbability
+        if node == self.root:
+            distRewards, distProbability = self.distributionCompare(node, oldNode, distRewards, distProbability, cumulative_reward, startNode)
+            #print("Out while", distRewards, file = self.file)
+            self.onlineBootstrap(node, distRewards, distProbability, 1, cumulative_reward)
 
-
-                    if len(node.distribution.keys()) == 0:
-                        #print(bool(node.distribution), file = self.file)
-                        node.distribution.update({'reward' : distRewards})
-                        node.distribution.update({'probability' : distProbability})
-                    else:
-                        sum1 = 0
-                        sum2 = 0
-                        for val in range(len(node.distribution['reward'])):
-                            #print(reward, file = self.file)
-                            sum1 += self.scalarize_reward(node.distribution['reward'][val]) * node.distribution['probability'][val]
-                            
-                        for val in range(len(distRewards)):
-                            sum2 += self.scalarize_reward(distRewards[val]) * distProbability[val]
-
-                        if sum2 > sum1:
-                            node.distribution.update({'reward' : distRewards})
-                            node.distribution.update({'probability' : distProbability})
-
-                            distRewards = node.distribution['reward']
-                            distProbability = node.distribution['probability']
-                        #else:
-                            #distRewards = node.distribution['reward']
-                            #distProbability = node.distribution['probability']
-
-                    #print("distProbability", distProbability, file = self.file)
-
-                #probability = prob * probability #*  (1 / node.numActions)
-                #probability = probability / 3
-                node.parent.timesActionTaken[node.action] += 1
-                #print(distRewards, file = self.file)
-            
-            if len(cumulative_reward) > 2:
-                if cumulative_reward[1] <= -100:
-                    cumulative_reward[1] = -100
-
-            node.timesVisited += 1           
-
-            #node.rewards.append(cumulative_reward)
-            node.probabilities.append(probability)
-            node.rollUCT += node.scalarize_reward(cumulative_reward) #* probability
-
-            node.data[str(cumulative_reward)] = {'probability' : probability, 'reward' : cumulative_reward, 'scaled probability' : probability }
-
-            
-            holder = [i for i in range(len(distRewards))]
-            _rewards_ = np.random.choice(holder, 10, p=distProbability)
-            _rewards_ = [distRewards[i] for i in _rewards_]
-            node.rewards.append(_rewards_)
-            sample_indices = np.random.choice(len(node.rewards), n )
-            sample = [node.rewards[j] for j in sample_indices]
-
-            
-            _sample_ = [self.scalarize_reward(j) for j in sample]
-            #_sample_ = [j for j in sample]
-            meanSample = sum(_sample_) / n
-            node.samples_mean.append(meanSample)
             oldNode = node
-            #cumulative_reward = cumulative_reward + node.reward
+            if node.type == "decision" and node.done == False:                
+                cumulative_reward = cumulative_reward + node.reward
+                distRewards = [node.reward + i for i in distRewards]
+
             #distRewards = [node.reward + i for i in distRewards]
+            node.timesVisited += 1
+            oldNode = node
             node = node.parent
 
-        
+       
             
+        
+        if node == "Null":
+            self.hypervolumeCalc(cumulative_reward)  
+            #print("Hypervolume", self.hypervolume, "Coverage Set", self.coverageSet, file = self.file)
+
         return
     
 
@@ -855,8 +1073,8 @@ class Tree:
                 node.parent.timesActionTaken[node.action] += 1
             
             if len(cumulative_reward) > 2:
-                if cumulative_reward[1] <= -100:
-                    cumulative_reward[1] = -100
+                if cumulative_reward[1] <= -10:
+                    cumulative_reward[1] = -10
 
             node.timesVisited += 1           
 
@@ -993,7 +1211,7 @@ class Tree:
         flag = 0
 
         #node.timesActionTaken[node.action] += 1
-        #self.updateDistributionTable(node.state, action, reward, next_state)
+        #self.updateDistributionTable(node, node.state, action, reward, next_state)
 
         a = 0  
         
@@ -1055,10 +1273,39 @@ class chanceNode:
 
     def __init__(self, node, state, action, args, _type_):
         self.numActions = 4
+
+        n = 10000
+        an = 1500
+        #an = 250
+
+        #an = 1000
+        self.onlineRewards = []
+        artificialData = []
+        
+
+        self.onlineRewards = np.tile(np.array([1, 0, 0]),(n, 1))
+        self.count = np.empty(n)
+        self.count.fill(1)
+
+        self.artificialRewards = []
+        #artificialData =  np.array([artificialData])
+        r1 = np.random.randint(0, 124, size=(an, 1))
+        r2 = np.zeros(shape=(an, 1))
+        r3 = np.random.randint(-30,0, size=(an, 1))
+        #self.artificialRewards = np.tile(np.array(np.array([random,randint(0, 124), 0, -random.randint(0, 30)]),(an, 1))
+        self.artificialRewards = np.hstack((r1,r2,r3))
+
+        self.artificialCount = np.empty(an)
+        self.artificialCount.fill(1)
+
+        self.sample = np.vstack((self.onlineRewards, self.artificialRewards))
+        self.sampleCount = np.concatenate((self.count, self.artificialCount))
+        
+
         #self.health = health
         self.type = "chance"
         self.parent = node
-        self.samples_mean = []
+        self.samples_mean = self.onlineRewards
         self.state = state
         self.distback_rewards = []
         self.distback_props = []
@@ -1129,6 +1376,8 @@ class chanceNode:
 
     def createChild(self, node, state, action, reward, done, health, _type_):
         #node, node.state, action, node.row, node.col
+       
+
         child = decisionNode(node, state, action, self.args, reward, done, health, _type_)
 
 
@@ -1174,6 +1423,35 @@ class chanceNode:
 class decisionNode:
 
     def __init__(self, node, state, action, args, reward, done, health, _type_):
+
+        n = 10000
+        an = 1500
+        #an = 250
+
+        #an = 1000
+        self.onlineRewards = []
+        artificialData = []
+        
+
+        self.onlineRewards = np.tile(np.array([1, 0, 0]),(n, 1))
+        self.count = np.empty(n)
+        self.count.fill(1)
+
+        self.artificialRewards = []
+        #artificialData =  np.array([artificialData])
+        r1 = np.random.randint(0,124, size=(an, 1))
+        r2 = np.zeros(shape=(an, 1))
+        r3 = np.random.randint(-30,0, size=(an, 1))
+        #self.artificialRewards = np.tile(np.array(np.array([random,randint(0, 124), 0, -random.randint(0, 30)]),(an, 1))
+        self.artificialRewards = np.hstack((r1,r2,r3))
+
+        self.artificialCount = np.empty(an)
+        self.artificialCount.fill(1)
+
+        self.sample = np.vstack((self.onlineRewards, self.artificialRewards))
+        self.sampleCount = np.concatenate((self.count, self.artificialCount))
+        
+
         self.numActions = 4
         self.health = health
         self.parent = node
@@ -1185,7 +1463,7 @@ class decisionNode:
         self.children = []
         self.reward = reward
         self.isleaf = True
-        self.samples_mean = []
+        self.samples_mean = self.onlineRewards
         self.args = args
         self.env = gym.make(self.args.env)
         self.timesVisited = 0
@@ -1544,87 +1822,7 @@ class Learner(object):
         else:
             return -1000
 
-    def optimalRoute(self, node, tree):
-        self.node = node
-        self.rewards = []
-        self.probabilities = []
-        self.stareward = [0,0]
-        self.staprob = 1
-        self.bestChild = 0
-        self.reward = []
-        self.probabilities = []
-
-        self.cumulativeReward = [0,0]
-        self.probability = 1
-
-        def backup(node):
-            _reward_ = [0,0]
-            _prob_ = 1
-
-            while node != self.node.parent:
-
-                _reward_ += node.reward
-                if node.type == "chance":
-                    _prob_ = _prob_ * 1
-                
-                else:
-                    _prob_ = _prob_ * tree.distTable[node.parent.state][node.action][node.state][str(node.reward)]['count'] / tree.distTable[node.parent.state][node.action]['count']
-                node = node.parent
-
-            self.rewards.append(_reward_)
-            self.probabilities.append(_prob_)
-
-
-        def find(node):            
-            
-            for outcome in node.children:
-
-                if len(outcome.children) == 0:  
-                    backup(outcome) 
-                
-                else:
-                    _val_ = -sys.maxsize
-                    
-                    for action in outcome.children:
-                        val, testA, testB, scales = action.getExpectedReturn(outcome)
-                        #print("Child Rewards", testA, file = self.debug_file)
-                        #print("Child Probabilities", testB, file = self.debug_file)
-                        #print("Child Scales", scales, file = self.debug_file)
-                        #print(" ", file = self.debug_file)
-                        if val > _val_:
-                            _val_  = val
-                            _node_ = action
-                    
-                    find(_node_)                    
-
-                    
-
-        def finder(node, action):            
-            
-            for outcome in node.children:
-
-                if len(outcome.children) == 0:  
-                    backup(outcome) 
-                
-                else:
-                    #_val_ = -sys.maxsize
-                    
-                    for _node in outcome.children:
-                        if _node.action == action:
-                            _node_ = _node
-                    
-                    finder(_node_, action)
-                        
-
-                        #finder(outcome)  
-
-
-        #for action in range(3):
-            #finder(node,action)
-        find(node)
-
-
-        return self.rewards, self.probabilities
+    
 
     def getXYfromState(self,state):
         
@@ -1748,46 +1946,23 @@ class Learner(object):
 
             means = [[] for x in range(4)]
             #print("Node type...", node.type, file = self.debug_file)
+            sample = np.random.choice(len(node.onlineRewards), len(node.children))
             for child in node.children:
                 #print("Child type...", child.type, file = self.debug_file)
-
-                meanSample_indices = np.random.choice(len(child.samples_mean))            
-                randomSample = child.samples_mean[meanSample_indices]
-                #self.sampleDict[node.state][child.action].update({'distribution' : child.samples_mean})
-
-                #mean = sum(child.samples_mean) / len(child.samples_mean)
-                #means[child.action].append(mean)           
-                """
-                if randomSample > minVal:
-                    minVal = randomSample 
-                    action = child.action
-                """
-               #print(child.action, file = self.debug_file)
-               #print("Hello", file = self.debug_file)
-                #if self.timestep == 0 and child.action == 0:
-                print("State", state, file = self.debug_file)
+                randomSample = child.onlineRewards[sample[child.action]] / child.count[sample[child.action]]
+                
                 xy = self.getXYfromState(state)
-                print("Timestep", self.timestep, "X", xy[0], "Y", xy[1], "Action", child.action, file = self.debug_file)
+                #print("Timestep", self.timestep, "X", xy[0], "Y", xy[1], "Action", child.action, file = self.debug_file)
                 #print("Action", child.action, file = self.debug_file)
-                print("Random Sample", randomSample, file = self.debug_file)
-                print("Cumulative Reward", cumulative_rewards, file = self.debug_file)
-                print("Sample + Reward", randomSample + cumulative_rewards, file = self.debug_file)
-                print("Distribition", child.distribution, file = self.debug_file)
-                print(" ", file = self.debug_file)
-                means[child.action] = self.scalarize_reward(randomSample + cumulative_rewards) 
-                #if self.scalarize_reward(randomSample + cumulative_rewards) > minVal:
-                    #minVal = self.scalarize_reward(randomSample + cumulative_rewards) 
-                    #action = child.action
-                action = means.index(max(means))
-                #print("Sample", randomSample, file = self.debug_file)
-                """
-                if randomSample > minVal:
-                    minVal = randomSample
-                    action = child.action
-                """
-            
-            #actions = [0, 1, 2, 3]
-            #action = random.choice(actions)
+                #print("Random Sample", randomSample, file = self.debug_file)
+                #print("Cumulative Reward", cumulative_rewards, file = self.debug_file)
+                #print("Sample + Reward", randomSample + cumulative_rewards, file = self.debug_file)
+                #print("Distribution", child.distribution, file = self.debug_file)
+                #print(" ", file = self.debug_file)
+
+                means[child.action] = self.scalarize_reward((randomSample) + cumulative_rewards) 
+
+            action = means.index(max(means))
 
         return action
 
@@ -1866,62 +2041,7 @@ class Learner(object):
             #x, y = self.getXYfromState(state)
             #print("Cumulative Rewards", cumulative_rewards, file = self.debug_file)
             action = self.selectAction("Bootstrap Thompson", self.tree, testReward, testProbs, cumulative_rewards, cumulative_probability, env_state)
-            #actions = [0, 1, 2, 3]
-            #action = random.choice(actions)
-            #print("Action", action, file = self.debug_file)
-
-            #print("X :", x, "Y :", y, file = self.debug_file) 
-            #print("State", state, file = self.debug_file)
-            #print("Rewards Action:: ", testReward, file = self.debug_file)
-            #print("Probabilities ::", testProbs, file = self.debug_file)
-            #print("All Data", allData, file = self.debug_file)
-            #print("Data 0", allData[0], file = self.debug_file)
-            #print("Data 1", allData[1], file = self.debug_file)
-            #print("Data 2", allData[2], file = self.debug_file)
-            #print("Expected Utility on each Node :", expectedUtility, file = self.debug_file)
-            #print("Distribution ", nodeDist, file = self.debug_file)
-            #print("Check", testReward, file = self.debug_file)
-            #print("*** Start ***", file = self.debug_file)
-            #print("Rewards 0 ", a[0], file = self.debug_file)
-            #print("Probabilities 0", b[0], file = self.debug_file)
-            #print("Scaled Probabilities", scaled_probs[0], file = self.debug_file)
-            #print(" ", file = self.debug_file)
-
-            #print("Rewards 1 ", a[1], file = self.debug_file)
-            #print("Probabilities 1", b[1], file = self.debug_file)
-            #print("Scaled Probabilities 1", scaled_probs[1], file = self.debug_file)
-            #print("Sum SP1", sum(scaled_probs[1]), file = self.debug_file)
-            #print(" ", file = self.debug_file)
-
-            #print("Rewards 2 ", a[2], file = self.debug_file)
-            #print("Probabilities 2", b[2], file = self.debug_file)
-            #print("Scaled Probabilities 2", scaled_probs[2], file = self.debug_file)
-            #print("Sum SP2", sum(scaled_probs[2]), file = self.debug_file)
-            #print(" ", file = self.debug_file)
-
-            #print("End", file = self.debug_file)
             
-            #print("Action", action, file = self.debug_file)
-            #print("Probabilities ALl", b, file = self.debug_file)
-            #print("Sum Prob 0", sum(b[0]), file = self.debug_file)
-            #print("Sum Prob 1", sum(b[1]), file = self.debug_file)
-            #print("Sum Prob 2", sum(b[2]), file = self.debug_file)
-            #print(" ", file = self.debug_file)
-             
-            """
-            if random.random() < 0.0:
-                if self.act < 0:
-                    action = 2
-                else:
-                    action = random.randint(0,2)
-                self.act += 1
-            else:
-                index = expectedUtility.index(max(expectedUtility))
-                node = nodes[index]
-                #action = node.action
-
-                #print("Action", action, file = self.debug_file)
-            """
             env_state, rewards, node, done, probability = self.tree.takeAction(action, cumulative_rewards)
 
             cumulative_rewards += rewards
@@ -1932,8 +2052,8 @@ class Learner(object):
 
             if len(cumulative_rewards) > 2:
 
-                if cumulative_rewards[1] <= -100 or health <= -100:
-                    cumulative_rewards[1] = -100
+                if cumulative_rewards[1] <= -10 or health <= -10:
+                    cumulative_rewards[1] = -10
                     self.done = True
                     self.tree.reset()
 
@@ -1944,12 +2064,12 @@ class Learner(object):
             x += 1
             self.timestep += 1
         self.tree.reset()
-        return cumulative_rewards, testReward, testProbs, self.sampleDict
+        return cumulative_rewards, testReward, testProbs, self.sampleDict, self.tree.hypervolume, self.tree.coverageSet
 
 def main():
     # Parse parameters
     num_runs = 1
-    episodes = 1000
+    episodes = 10000
     
     parser = argparse.ArgumentParser(description="Reinforcement Learning for the Gym")
 
@@ -1990,7 +2110,7 @@ def main():
             avgUtility = 0
 
             for i in range(episodes):
-                rewards, allRewards, allProbabilities, sampleDict = learner.run()
+                rewards, allRewards, allProbabilities, sampleDict, hypervolume, coverageSet = learner.run()
 
                 if i == 0:
                     avg = rewards
@@ -2019,7 +2139,7 @@ def main():
                     time = datetime.time(datetime.now())
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
 
-                    print("Episode", i, "Time Elapsed : ", time_elapsed, "Cumulative reward:", rewards, file = f)
+                    print("Episode", i, "Time Elapsed : ", time_elapsed, "Cumulative reward:", rewards, "Hypervolume", hypervolume, "Coverage Set", coverageSet, file = f)
                     f.flush()
 
                 """
