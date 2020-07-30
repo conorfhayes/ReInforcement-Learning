@@ -1,6 +1,5 @@
 # Dynamic Economic Emissions Dispatch Problem implemenation with Q-learning.
-# A V1 of this implementation for my MSC thesis in Data Analytics
-# Code to be updated
+
 
 
 
