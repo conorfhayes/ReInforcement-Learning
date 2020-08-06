@@ -57,10 +57,11 @@ register(
 
 class Tree:
 
-    def __init__(self, state, args, file, weights):
+    def __init__(self, state, args, file, vector, utilityType):
         self.state = state
         self.count = 0
-        self.weights = weights
+        self.vector = vector
+        self.utilityType = utilityType
         if args.utility is not None:
             self._utility = compile(args.utility, 'utility', 'eval')
         else:
@@ -180,49 +181,93 @@ class Tree:
         else:
             return -1000
 
-    def scalarize_reward(self, rewards, weights):
-        """ Return a scalarized reward from objective scores
-        """
-        """
-        if self._utility is None:
-            # Default scalarization, just a sum
-            return np.sum(rewards)
-        else:
-            # Use the user utility function
 
-        """
-        reward = 0
-        reward += rewards[0] * self.weights[0]
-        reward += rewards[1]
-        reward += rewards[2] * self.weights[2]
 
-        #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(len(rewards))})
-        return reward
+    def scalarize_reward(self, rewards, vector, _type_):
 
-    def runSimulate(self, node, cumulative_reward):
+        if _type_ == "linear":
+            reward = 0
+            reward += (vector[0] * rewards[0]) + (vector[1] * rewards[1]) + (vector[2] * rewards[2]) 
+            return reward
+
+        if _type_ == "target":
+
+            rewards[2] += 52
+            rewards[1] += 52
+            nunpyc = np.arange(200)
+            
+
+            numpyReward = np.tile(np.array([rewards[0], rewards[1], rewards[2]]), (200, 1))
+            numpyVector = np.tile(np.array([vector[0], vector[1], vector[2]]), (200, 1))
+            
+
+            linVector = np.tile(np.array([0.0, 0.0, 0.0]), (200, 1))
+
+            linVector[:,0] = np.subtract(numpyReward[:,0], np.multiply(nunpyc, numpyVector[:,0]))
+            linVector[:,1] = np.subtract(numpyReward[:,1], np.multiply(nunpyc, numpyVector[:,1]))
+            linVector[:,2] = np.subtract(numpyReward[:,2], np.multiply(nunpyc, numpyVector[:,2]))
+
+            
+            linVector = linVector[(linVector[:,0] >= 0) & (linVector[:,1] >= 0) & (linVector[:,2] >= 0), :]
+            #linVector = np.all(np.array(linVector) > 0)
+            #print("LinVector", linVector, file = self.debug_file)
+            #print("C", len(linVector), file = self.debug_file)
+            """
+            c = 0
+            linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+            counter = []
+
+            while np.all(np.array(linearVec) > 0) :
+                linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+
+                if np.all(np.array(linearVec) > 0):
+                    counter.append(linearVec)
+                    c += 1
+            #print("Reward",rewards, file = self.debug_file)
+            print("Counter",counter, file = self.debug_file)
+            #print("C", c - 1, file = self.debug_file)
+            """
+            return len(linVector) - 1
+
+        #return 0
+
+
+    def runSimulate(self, chanceNode, cumulative_reward):
+        
         flag = 0
 
         if self.numRewards == 3:
-            state, reward, done, __ = self.env.step(node.state, node.action, cumulative_reward[1])
+            state, reward, done, __ = self.env.step(chanceNode.state,  chanceNode.action, cumulative_reward[1])
         else:
             state, reward, done, __ = self.env.step(node.state, node.action)
+       
         stringReward = str(reward)
-        if stringReward in node.distributionTable:
-            flag = 1
-            for _node_ in node.children:
-                comparison = reward == _node_.reward
-                if comparison.all():
-                    if _node_.done == done:
-                        n = _node_
+        #print("Hour", hour, "Reward", reward, file = self.file)
+        
 
-        self.updateDistributionTable(node.state, node.action, reward, state, node)
+        if stringReward in chanceNode.distributionTable:
+            for decisionNode in chanceNode.children:
+                comparison = reward == decisionNode.reward
+                #print("Decision Node Reward", decisionNode.reward, "Reward", reward, "Match?", comparison.all(), file = self.file)
+                if comparison.all():
+                    if decisionNode.done == done:
+                        #print("Node Done", decisionNode.done, "Done", done, file = self.file)
+                        n = decisionNode
+                        self.updateDistributionTable(decisionNode.state, decisionNode.action, reward, state, decisionNode)
+                        flag = 1
+
+        else:
+            self.updateDistributionTable(chanceNode.state, chanceNode.action, reward, state, chanceNode)
+
+        
     
         if flag == 0:                      
-            _node_ = node.createChild(node, state, node.action, reward, done, reward, True)            
+            decisionNode = chanceNode.createChild(chanceNode, state, chanceNode.action, reward, done, reward, True)            
             #node.parent.childChanceRewards[node.action].append(reward)
-            _node_.timeRewardReceived += 1
-            self.updateDistributionTable(node.state, node.action, reward, state, _node_)
-            n = _node_
+            decisionNode.timeRewardReceived += 1
+            self.updateDistributionTable(decisionNode.state, decisionNode.action, reward, state, decisionNode)
+            n = decisionNode
+            self.simulate(decisionNode)
 
         #if random.random() < 0.1:
             #self.simulate(np.random.choice(node.children))
@@ -353,13 +398,15 @@ class Tree:
         bestNode = -10
         c = 30
         #n = 150
-        n = 25
+        n = 100
         #n = 1000
         #action = 0
         minVal = -sys.maxsize
         arr = np.array([124, 0, -1])
         checkReward = []
         checkCount = []
+        #print(self.utilityType, file = self.file)
+        #print(self.vector, file = self.file)
         sample = np.random.choice(len(node.onlineRewards) + n, 4)
         for child in node.children:
 
@@ -369,8 +416,8 @@ class Tree:
                 #print(child.artificialRewards, file = self.file)
                 checkReward = np.vstack((child.onlineRewards, child.artificialRewards))
                 checkCount = np.concatenate((child.count, child.artificialCount))                
-                randomSample = self.scalarize_reward(checkReward[sample[child.action]] / checkCount[sample[child.action]], self.weights)
-                
+                randomSample = self.scalarize_reward(checkReward[sample[child.action]] / checkCount[sample[child.action]], self.vector, self.utilityType)
+                #print(randomSample, file = self.file)
                 if randomSample > minVal:
                     minVal = randomSample
                     bestNode = child  
@@ -381,30 +428,38 @@ class Tree:
     def expand(self, node, cumulative_reward):
 
         action = random.choice(node.childrenRemaining)
-        chance = node.createChild(node, node.state, action, [0,0,0], False, 0, False)
+        #chance = node.createChild(node, node.state, action, [0,0,0], False, 0, False, node.hour + 1)
         #print("Check type", chance.type, file = self.file)
 
         if self.numRewards == 3:
             #print("CR", cumulative_reward, file = self.file)
             state, reward, done,  __ = self.env.step(node.state, action, cumulative_reward[1])
-            #print("Reward", reward, file = self.file)
+            #print("Next State",  state, file = self.file)
+            #if node.state == 0 and action == 0:
+                #print("Reward", reward, node.parent, node.hour, file = self.file)
+            #print("Hour", node.hour, "Done?", done, file = self.file)
+            chance = node.createChild(node, node.state, action, [0,0,0], False, 0, False)
             child = chance.createChild(chance, state, action, reward, done, 0, False)
         else:
             state, reward, done, __ = self.env.step(node.state, action)
             child = chance.createChild(chance, state, action, reward, done, 0, False)
         
-        node.childChanceRewards[action].append(reward)
+        #node.childChanceRewards[action].append(reward)
         node.childrenRemaining.remove(action)  
+        #node.childrenRemaining = np.delete(node.childrenRemaining, np.where(node.childrenRemaining == action))
 
         self.updateDistributionTable(node.state, action, reward, state, chance)
         self.updateDistributionTable(node.state, action, reward, state, child)
-      
+        #print("Expand Reward", reward, file = self.file)
         
 
         if len(node.childrenRemaining) == 0:
             node.isleaf = False
         else:
             node.isleaf = True
+
+        if node.done == True:
+            node.isleaf = False
 
         return child, cumulative_reward
 
@@ -691,7 +746,7 @@ class Tree:
 
     def distributionSample(self, node, distRewards, distProbability, n):
         a = 100
-        n = 100
+        n = 25
         holder = []
         _rewards_ = []
         sample_indices = []
@@ -780,12 +835,12 @@ class Tree:
                 sum2 = 0
                 for val in range(len(node.distribution['reward'])):
 
-                    sum1 += self.scalarize_reward(node.distribution['reward'][val], self.weights) * node.distribution['probability'][val]
+                    sum1 += self.scalarize_reward(node.distribution['reward'][val] * node.distribution['probability'][val], self.vector, self.utilityType)
                     
                 for val in range(len(distRewards)):
                     #print("Here", distRewards, file = self.file)
                     #print("Scala", self.scalarize_reward(distRewards[val])  * distProbability[val], file = self.file)
-                    sum2 += self.scalarize_reward(distRewards[val], self.weights) * distProbability[val]
+                    sum2 += self.scalarize_reward(distRewards[val] * distProbability[val], self.vector, self.utilityType)
 
                 #print(sum1, sum2, file = self.file)
                 if sum2 > sum1:
@@ -809,11 +864,11 @@ class Tree:
                 
                 for val in range(len(node.distribution['reward'])):
                     
-                    sum1 += self.scalarize_reward(node.distribution['reward'][val], self.weights) * node.distribution['probability'][val]
+                    sum1 += self.scalarize_reward(node.distribution['reward'][val] * node.distribution['probability'][val], self.vector, self.utilityType) 
                     
                 for val in range(len(distRewards)):
 
-                    sum2 += self.scalarize_reward(distRewards[val], self.weights) * distProbability[val]
+                    sum2 += self.scalarize_reward(distRewards[val] * distProbability[val], self.vector, self.utilityType)
 
                 if sum2 > sum1:
 
@@ -1045,13 +1100,14 @@ class Tree:
         else:
             next_state, reward, done, __ = self.env.step(node.state, action)        
         flag = 0
+        check = 0
 
         #node.timesActionTaken[node.action] += 1
         self.updateDistributionTable(node.state, node.action, reward, next_state, node)
         #self.updateDistributionTable(node, node.state, action, reward, next_state)
 
         a = 0  
-        
+        """
         for nodes in node.children:
             if nodes.action == action:
                 node = nodes    
@@ -1061,53 +1117,52 @@ class Tree:
                 if child.done == done:
                     self.root = child 
                     flag = 1
+        """
+        #print(len(node.children), file = self.file)
+        for nodes in node.children:
+            if nodes.action == action:
+                chanceNode = nodes
+                self.updateDistributionTable(chanceNode.state, chanceNode.action, reward, next_state, chanceNode)
+                check = 1
+
+        
+        if check == 0:
+            chanceNode = node.createChild(node, node.state, action, [0,0,0], done, [0,0,0], True)
+            self.updateDistributionTable(chanceNode.state, chanceNode.action, reward, next_state, chanceNode)
+
+        if len(chanceNode.children) > 0:
+            for child in chanceNode.children:
+                comparison = reward == child.reward
+                if comparison.all():
+                    if child.done == done:
+                        self.root = child 
+                        self.updateDistributionTable(child.state, child.action, reward, next_state, child)
+                        flag = 1
+        else:
+            flag = 1
+            decisionNode = chanceNode.createChild(chanceNode, next_state, action, reward, done, reward, True)
+            self.updateDistributionTable(decisionNode.state, decisionNode.action, reward, next_state, decisionNode)
+            self.root = decisionNode
+            if done == False:
+                self.simulate(decisionNode)
+
+
         
         if flag == 0:     
-            #print("Here 2", file = self.file)                       
-            _node_ = node.createChild(node, next_state, action, reward, done, reward, True)
+            decisionNode = chanceNode.createChild(chanceNode, next_state, action, reward, done, reward, True)
             
-            node.childChanceRewards[action].append(reward)
-            if _node_.type == "chance":
-                #print(_node_, file = self.file)
-                #self.updateDistributionTable(_node_, _node_.state, action, reward, next_state)
-                self.updateDistributionTable(_node_.state, _node_.action, reward, next_state, _node_)
-            #if _node_.type == "decision":
-                #self.simulate(_node_)
-            self.root = _node_
-            #_node_.health = health
-            #_node_.timesActionTaken += 1
-            _node_.timeRewardReceived += 1 
+            self.updateDistributionTable(chanceNode.state, chanceNode.action, reward, next_state, chanceNode)
+            self.updateDistributionTable(decisionNode.state, decisionNode.action, reward, next_state, decisionNode)
+            
+            #node.childChanceRewards[action].append(reward)
+            
+            self.root = decisionNode
+            if done == False:
+                self.simulate(decisionNode)
         
         #probability = self.distTable[node.state][action][next_state][str(reward)]['count'] / self.distTable[node.state][action]['count']
         probability = 1
-        """     
-        
-        for _node_ in node.children:
-            if _node_.action == action:
-                #_node_.timesActionTaken += 1                        
-                if any((reward == q).all() for q in node.childChanceRewards[action]):
-                    comparison = reward == _node_.reward
-                    #print("Node State", node.state, file = self.file)
-                    if comparison.all():
-                        if _node_.done == done:
-                            self.root = _node_
-                            a += 1                      
-
-                            #_node_.health = health
-                            #_node_.timeRewardReceived += 1
-                            flag = 1
-
-    
-        if flag == 0:     
-            #print("Here 2", file = self.file)                       
-            #_node_ = node.createChild(node, next_state, action, reward, done, reward, True)
-            
-            node.childChanceRewards[action].append(reward)
-            self.root = _node_
-            #_node_.health = health
-            #_node_.timesActionTaken += 1
-            _node_.timeRewardReceived += 1  
-        """
+        #timeRewardReceived += 1  
 
         return next_state, reward, node, done, probability
 
@@ -1119,7 +1174,7 @@ class chanceNode:
 
         n = 1000
         #an = 150
-        an = 25
+        an = 100
 
         #an = 1000
         self.onlineRewards = []
@@ -1133,8 +1188,10 @@ class chanceNode:
         self.artificialRewards = []
         #artificialData =  np.array([artificialData])
         r1 = np.random.randint(0, 124, size=(an, 1))
-        r2 = np.zeros(shape=(an, 1))
-        r3 = np.random.randint(-30,0, size=(an, 1))
+        #r2 = np.zeros(shape=(an, 1))
+        choice = [0, 0]
+        r2 = np.random.choice(choice, size=(an, 1))
+        r3 = np.random.randint(-19,-1, size=(an, 1))
         #self.artificialRewards = np.tile(np.array(np.array([random,randint(0, 124), 0, -random.randint(0, 30)]),(an, 1))
         self.artificialRewards = np.hstack((r1,r2,r3))
 
@@ -1251,24 +1308,55 @@ class chanceNode:
         return var, rewards, probabilities, scales
 
 
+    
 
-    def scalarize_reward(self, rewards, weights):
-        """ Return a scalarized reward from objective scores
-        """
-        #if self._utility is None:
-            # Default scalarization, just a sum
-            #return np.sum(rewards)
-        #else:
-            # Use the user utility function#
+    def scalarize_reward(self, rewards, vector, _type_):
 
-            #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(self._num_rewards)})
-        reward = 0
-        reward += rewards[0] * weights[0]
-        reward += rewards[1]
-        reward += rewards[2] * weights[2]
+        if _type_ == "linear":
+            reward = 0
+            reward += (vector[0] * rewards[0]) + (vector[1] * rewards[1]) + (vector[2] * rewards[2]) 
+            return reward
 
-        #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(len(rewards))})
-        return reward
+        if _type_ == "target":
+            #print("Rewards", rewards, file = self.debug_file)
+            rewards[2] += 52
+            rewards[1] += 52
+            nunpyc = np.arange(200)
+            
+
+            numpyReward = np.tile(np.array([rewards[0], rewards[1], rewards[2]]), (200, 1))
+            numpyVector = np.tile(np.array([vector[0], vector[1], vector[2]]), (200, 1))
+            
+
+            linVector = np.tile(np.array([0.0, 0.0, 0.0]), (200, 1))
+
+            linVector[:,0] = np.subtract(numpyReward[:,0], np.multiply(nunpyc, numpyVector[:,0]))
+            linVector[:,1] = np.subtract(numpyReward[:,1], np.multiply(nunpyc, numpyVector[:,1]))
+            linVector[:,2] = np.subtract(numpyReward[:,2], np.multiply(nunpyc, numpyVector[:,2]))
+
+            
+            linVector = linVector[(linVector[:,0] >= 0) & (linVector[:,1] >= 0) & (linVector[:,2] >= 0), :]
+            #linVector = np.all(np.array(linVector) > 0)
+            #print("LinVector", linVector, file = self.debug_file)
+            #print("C", len(linVector), file = self.debug_file)
+            """
+            c = 0
+            linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+            counter = []
+
+            while np.all(np.array(linearVec) > 0) :
+                linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+
+                if np.all(np.array(linearVec) > 0):
+                    counter.append(linearVec)
+                    c += 1
+            #print("Reward",rewards, file = self.debug_file)
+            print("Counter",counter, file = self.debug_file)
+            #print("C", c - 1, file = self.debug_file)
+            """
+            return len(linVector) - 1
+
+        #return 0
 
 class decisionNode:
 
@@ -1276,7 +1364,7 @@ class decisionNode:
 
         n = 1000
         #an = 150
-        an = 25
+        an = 100
 
         #an = 1000
         self.onlineRewards = []
@@ -1290,8 +1378,10 @@ class decisionNode:
         self.artificialRewards = []
         #artificialData =  np.array([artificialData])
         r1 = np.random.randint(0,124, size=(an, 1))
-        r2 = np.zeros(shape=(an, 1))
-        r3 = np.random.randint(-30,0, size=(an, 1))
+        #r2 = np.zeros(shape=(an, 1)
+        choice = [0, 0]
+        r2 = np.random.choice(choice, size=(an, 1))
+        r3 = np.random.randint(-19,-1, size=(an, 1))
         #self.artificialRewards = np.tile(np.array(np.array([random,randint(0, 124), 0, -random.randint(0, 30)]),(an, 1))
         self.artificialRewards = np.hstack((r1,r2,r3))
 
@@ -1378,40 +1468,72 @@ class decisionNode:
 
         return child
 
-    def scalarize_reward(self, rewards, weights):
-        """ Return a scalarized reward from objective scores
-        """
-        #if self._utility is None:
-            # Default scalarization, just a sum
-            #return np.sum(rewards)
-        #else:
-            # Use the user utility function#
 
-            #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(3)})
-        reward = 0
-        reward += rewards[0] * weights[0]
-        reward += rewards[1]
-        reward += rewards[2] * weights[2]
+    def scalarize_reward(self, rewards, vector, _type_):
 
-        #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(len(rewards))})
-        return reward
+        if _type_ == "linear":
+            reward = 0
+            reward += (vector[0] * rewards[0]) + (vector[1] * rewards[1]) + (vector[2] * rewards[2]) 
+            return reward
+
+        if _type_ == "target":
+            #print("Rewards", rewards, file = self.debug_file)
+            rewards[2] += 52
+            rewards[1] += 52
+            nunpyc = np.arange(200)
+            
+
+            numpyReward = np.tile(np.array([rewards[0], rewards[1], rewards[2]]), (200, 1))
+            numpyVector = np.tile(np.array([vector[0], vector[1], vector[2]]), (200, 1))
+            
+
+            linVector = np.tile(np.array([0.0, 0.0, 0.0]), (200, 1))
+
+            linVector[:,0] = np.subtract(numpyReward[:,0], np.multiply(nunpyc, numpyVector[:,0]))
+            linVector[:,1] = np.subtract(numpyReward[:,1], np.multiply(nunpyc, numpyVector[:,1]))
+            linVector[:,2] = np.subtract(numpyReward[:,2], np.multiply(nunpyc, numpyVector[:,2]))
+
+
+            linVector = linVector[(linVector[:,0] >= 0) & (linVector[:,1] >= 0) & (linVector[:,2] >= 0), :]
+            #linVector = np.all(np.array(linVector) > 0)
+            #print("LinVector", linVector, file = self.debug_file)
+            #print("C", len(linVector), file = self.debug_file)
+            """
+            c = 0
+            linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+            counter = []
+
+            while np.all(np.array(linearVec) > 0) :
+                linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+
+                if np.all(np.array(linearVec) > 0):
+                    counter.append(linearVec)
+                    c += 1
+            #print("Reward",rewards, file = self.debug_file)
+            print("Counter",counter, file = self.debug_file)
+            #print("C", c - 1, file = self.debug_file)
+            """
+            return len(linVector) - 1
+
+        #return 0
 
 
 
 class Learner(object):
-    def __init__(self, args, weights):
+    def __init__(self, args, vector, utilityType):
         """ Construct a Learner from parsed arguments
         """
 
         # self.dist_table = [100][8]
         s = 121
         a = 3
-        self.weights = weights
+        self.vector = vector
+        self.utilityType = utilityType
         self.args = args
         self._env = gym.make(args.env)
         self.debug_file = open('debug', 'w') 
-        self.tree = Tree(0, self.args,self.debug_file, self.weights)
-        self.num_actions = 3
+        self.tree = Tree(0, self.args,self.debug_file, self.vector, self.utilityType)
+        self.num_actions = 4
         self.num_timesteps = 200
         #self.random_action = 0
         self._treedict_ = {}
@@ -1610,23 +1732,63 @@ class Learner(object):
             return np.array([reward])
         else:
             return np.array(reward)   
+  
 
-    def scalarize_reward(self, rewards, weights):
-        """ Return a scalarized reward from objective scores
-        """
-        #if self._utility is None:
-            # Default scalarization, just a sum
-            #return np.sum(rewards)
-        #else:
-            # Use the user utility function
-            #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(self._num_rewards)}) 
-        reward = 0
-        reward += rewards[0] * self.weights[0]
-        reward += rewards[1]
-        reward += rewards[2] * self.weights[2]
+    def scalarize_reward(self, rewards, vector, _type_):
 
-        #return eval(self._utility, {}, {'r' + str(i + 1): rewards[i] for i in range(len(rewards))})
-        return reward  
+        if _type_ == "linear":
+            reward = 0
+            reward += (vector[0] * rewards[0]) + (vector[1] * rewards[1]) + (vector[2] * rewards[2]) 
+            return reward
+
+        if _type_ == "target":
+            #print("Rewards", rewards, file = self.debug_file)
+            #rewards = [124, 0, -19]
+            rewards[2] += 52
+            rewards[1] += 52
+            nunpyc = np.arange(200)
+
+            
+
+            numpyReward = np.tile(np.array([rewards[0], rewards[1], rewards[2]], dtype = "float64"), (200, 1))
+            numpyVector = np.tile(np.array([vector[0], vector[1], vector[2]], dtype = "float64"), (200, 1))
+            
+
+            linVector = np.tile(np.array([0.0, 0.0, 0.0]), (200, 1))
+
+            linVector[:,0] = np.subtract(numpyReward[:,0], np.multiply(nunpyc, numpyVector[:,0]))
+            linVector[:,1] = np.subtract(numpyReward[:,1], np.multiply(nunpyc, numpyVector[:,1]))
+            linVector[:,2] = np.subtract(numpyReward[:,2], np.multiply(nunpyc, numpyVector[:,2]))
+
+            linVector = linVector[(linVector[:,0] >= 0) & (linVector[:,1] >= 0) & (linVector[:,2] >= 0), :]
+
+            #linVector = np.hstack(linvec0, linvec1, linvec2)
+            #linVector = np.matrix(linvec0, linvec1, linvec2)
+            #print("LinVector", linVector, file = self.debug_file)
+            #linVector = linVector[linVector[..., 0] >= 0]
+            #print("Hello", linVector[linVector[..., 0] >= 0], file = self.debug_file)
+            #linVector = np.all(np.array(linVector) > 0)
+            #print("LinVector", linVector, file = self.debug_file)
+            #print("C", len(linVector), file = self.debug_file)
+            """
+            c = 0
+            linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+            counter = []
+
+            while np.all(np.array(linearVec) > 0) :
+                linearVec = [rewards[0] - (c * vector[0]), rewards[1] - (c * vector[1]), rewards[2] - (c * vector[2])]
+
+                if np.all(np.array(linearVec) > 0):
+                    counter.append(linearVec)
+                    c += 1
+            #print("Reward",rewards, file = self.debug_file)
+            #print("Counter",counter, file = self.debug_file)
+            print("C", c, file = self.debug_file)
+            #a[:, (a[1] >= 0) & (a[2] >= 0)]
+            """
+            return len(linVector) - 1
+
+        return 0
 
     def TESTscalarize_reward(self, rewards):
         """ Return a scalarized reward from objective scores
@@ -1664,7 +1826,7 @@ class Learner(object):
 
         return stateNo
 
-    def selectAction(self, method, tree, rewards, probabilities, cumulative_rewards, cumulative_probability, state):
+    def selectAction(self, method, tree, rewards, probabilities, cumulative_rewards, cumulative_probability, state, param):
 
         #print("Rewards :", rewards, file = self.debug_file)
         #print("Probabilities :", probabilities, file = self.debug_file)
@@ -1768,7 +1930,8 @@ class Learner(object):
             node = tree.root
             minVal = -sys.maxsize
 
-            means = [[] for x in range(4)]
+            means = [0 for x in range(4)]
+            checker = [0 for x in range(4)]
             #print("Node type...", node.type, file = self.debug_file)
             #print(len(node.children), file = self.debug_file)
             sample = np.random.choice(len(node.onlineRewards), 4)
@@ -1777,16 +1940,22 @@ class Learner(object):
                 randomSample = child.onlineRewards[sample[child.action]] / child.count[sample[child.action]]
                 
                 xy = self.getXYfromState(state)
-                #print("Timestep", self.timestep, "X", xy[0], "Y", xy[1], "Action", child.action, file = self.debug_file)
-                #print("Action", child.action, file = self.debug_file)
-                #print("Random Sample", randomSample, file = self.debug_file)
-                #print("Cumulative Reward", cumulative_rewards, file = self.debug_file)
-                #print("Sample + Reward", randomSample + cumulative_rewards, file = self.debug_file)
-                #print("Distribution", child.distribution, file = self.debug_file)
-                #print(" ", file = self.debug_file)
+                if param == "Test":
+                    print("Timestep", self.timestep, "X", xy[0], "Y", xy[1], "Action", child.action, file = self.debug_file)
+                    print("Action", child.action, file = self.debug_file)
+                    print("Random Sample", randomSample, file = self.debug_file)
+                    print("Cumulative Reward", cumulative_rewards, file = self.debug_file)
+                    print("Sample + Reward", randomSample + cumulative_rewards, file = self.debug_file)
+                    print("Distribution", child.distribution, file = self.debug_file)
+                    print(" ", file = self.debug_file)
 
-                means[child.action] = self.scalarize_reward((randomSample) + cumulative_rewards, self.weights) 
-
+                means[child.action] = self.scalarize_reward((randomSample) + cumulative_rewards, self.vector, self.utilityType) 
+                checker[child.action] = (randomSample) + cumulative_rewards
+            #print(self.vector, file = self.debug_file)
+            #print(self.utilityType, file = self.debug_file)
+            #print(means, file = self.debug_file)
+            #print(checker, file = self.debug_file)
+            #print(" ", file = self.debug_file)
             action = means.index(max(means))
 
         return action
@@ -1865,13 +2034,14 @@ class Learner(object):
             scaled_probs = []
             #x, y = self.getXYfromState(state)
             #print("Cumulative Rewards", cumulative_rewards, file = self.debug_file)
-            action = self.selectAction("Bootstrap Thompson", self.tree, testReward, testProbs, cumulative_rewards, cumulative_probability, env_state)
+            action = self.selectAction("Bootstrap Thompson", self.tree, testReward, testProbs, cumulative_rewards, cumulative_probability, env_state, param)
             
             env_state, rewards, node, done, probability = self.tree.takeAction(action, cumulative_rewards)
 
             cumulative_rewards += rewards
             cumulative_probability *= probability
-            #print("Action Taken:", action, "Reward Total:", cumulative_rewards, file = self.debug_file)
+            if param == "Test":
+                print("Action Taken:", action, "Reward Total:", cumulative_rewards, file = self.debug_file)
             self.done = done
 
 
@@ -1894,7 +2064,7 @@ class Learner(object):
             #print(self.hypervolumeVal, file = self.debug_file)
         self.tree.reset()
         end = time.time()
-        print("Cumulative Reward", cumulative_rewards, "Episode Run Time", end - start, file = self.debug_file)
+        #print("Cumulative Reward", cumulative_rewards, "Episode Run Time", end - start, file = self.debug_file)
         return cumulative_rewards, testReward, testProbs, self.sampleDict, self.tree.hypervolume, self.tree.coverageSet, self.hypervolumeVal
 
 def main():
@@ -1931,36 +2101,29 @@ def main():
     w_time = 0
     w_health = 1
     w_treasure = 1
+    _type_ = "target"
     
     if args.monitor:
         learner._env.monitor.start('/tmp/monitor', force=True)
     for run in range(num_runs): 
         runData = []    
         
-        #print(run)
-        if run == 0:
-            w_time = 0.01
-            w_treasure = 0.99
-        elif run == 1:
-            w_time = 0
-            w_health = 1
-            w_treasure = 1
-            w_time = w_time + 0.1
-            w_treasure = w_treasure - 0.1
-        else:
-            w_time = w_time + 0.1
-            w_treasure = w_treasure - 0.1
+        if _type_ == "target":
+            reward = np.array([124, -10, -19])
+            reward[2] += 52
+            reward[1] += 52
+            r = np.sqrt(reward[0] ** 2 + reward[1] ** 2 + reward[2] ** 2)
+            vector = reward / r
 
-        if run == 0:
-            weights = [0.7, 1, 0.3]
-        else:
-            weights = [0.01, 1, 0.99]
+        if _type_ == "linear":        
+            vector = [0.99, 1, 0.01]
+        
 
         #weights = [round(w_treasure, 3), w_health, round(w_time, 3)]
 
         #weights = [w_treasure, w_health, w_time]
         #weights = [0.01, 1, 0.99]
-        learner = Learner(args, weights)
+        learner = Learner(args, vector, _type_)
         try:
             #old_dt = datetime.datetime.now()
             avg = np.zeros(shape=(learner._num_rewards,))
@@ -1978,7 +2141,7 @@ def main():
                     avg = avg + rewards
 
                 #print("Percentage Completed....", i%100, "% ", "Run : ", num_runs, " Episode : ", i,  file = f)
-                scalarized_avg = learner.scalarize_reward(avg, weights)
+                scalarized_avg = learner.scalarize_reward(avg, vector, "target")
                 if rewards[0] >= 0.88:
                     utility += rewards[1]
                 else:
@@ -1993,7 +2156,7 @@ def main():
 
                 avgUtility = utility / (i + 1)
 
-                if i % 1 == 0 and i >= 0:
+                if i % 1 == 0:
                     r = (i/episodes) * 100
                     time = datetime.time(datetime.now())
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
@@ -2009,7 +2172,7 @@ def main():
                     time_elapsed = datetime.combine(date.today(), time) - datetime.combine(date.today(), start_time)
 
                     #print("Episode", i, "Time Elapsed : ", time_elapsed, "Cumulative reward:", rewards, "Hypervolume", hypervolume, "Coverage Set", coverageSet, file = f)
-                    #f.flush()
+                    f.flush()
 
                 """
 
