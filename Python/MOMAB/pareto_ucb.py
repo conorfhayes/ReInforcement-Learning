@@ -143,9 +143,6 @@ def main():
 	for val in pareto_index:
 		pareto_set.append(bandits[val].return_vector)
 
-
-	check = agent.check_pareto_domination([1,1], [2,2])
-	print(check)
 	print("pareto front", pareto_set)
 
 if __name__ == "__main__":
