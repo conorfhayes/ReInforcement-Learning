@@ -88,7 +88,7 @@ class Pareto_ucb:
 
 		return self.pareto_set
 				
-
+	# Credit to Dr. Patrick Mannion (NUIG) for sharing his Pareto Dominance code, see below:
 	def check_pareto_domination(self, u, v):
 	    dominated = False  # assume that v is not dominated by u
 	    num_greater = 0
