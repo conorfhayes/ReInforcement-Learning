@@ -4,7 +4,7 @@ import random as random
 import math
 import matplotlib.pyplot as plt
 
-# This is an implementation of the pareto ucb algorithm outlined in Designing multi-objective multi-armed bandits algorithms: A study.
+# This is an implementation of the pareto ucb algorithm outlined in "Designing multi-objective multi-armed bandits algorithms: A study" by M. Drugan and A. Nowe
 # Please cite the following paper if using this code:
 # @INPROCEEDINGS{drugan2013momab,
 # author={M. M. {Drugan} and A. {Nowe}},
