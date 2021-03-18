@@ -116,18 +116,14 @@ def main():
 	num_arms = 6
 	agent = Pareto_ucb(num_arms)
 	bandits = []
+	pareto_set = []
 
 	bandits.append(Bandit(0.55, 0.5)) 	
 	bandits.append(Bandit(0.53, 0.51))
 	bandits.append(Bandit(0.52, 0.54)) 
 	bandits.append(Bandit(0.5, 0.57))
 	bandits.append(Bandit(0.51, 0.51))
-	bandits.append(Bandit(0.5, 0.5))
-
-	returns = []
-	average_utility = 0
-	pareto_set = []
-	
+	bandits.append(Bandit(0.5, 0.5))	
 
 	for i in range(timestep):
 		if i == 0:
