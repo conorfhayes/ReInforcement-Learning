@@ -3,6 +3,18 @@ import matplotlib.pyplot as plt
 import tikzplotlib
 import itertools
 
+
+class Experiment():
+	def __init__(self, bandits, agents, exp_num):
+		self.bandits = bandits
+		self.agents = agents
+		self.exp_num = exp_num
+
+	def run(self):
+
+		return
+
+
 class Plotter():
 
 	def plot(self,table):
@@ -27,7 +39,8 @@ class Plotter():
 
 		#ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
 		#ax1.bar3d(_x, _y, _z, 1, 1, dz, shade = True)
-		ax1.plot_trisurf(_x, _y, dz, cmap='twilight_shifted')
+		ax1.plot_trisurf(_x, _y, dz, cmap='Blues')
+		#ax1.plot_trisurf(_x, _y, dz, cmap='twilight_shifted')
 		#ax1.scatter(_x, _y, dz, c=dz, cmap='BrBG', linewidth=1)
 
 		ax1.set_xlabel('objective 1')
@@ -49,13 +62,26 @@ class Plotter():
 		#tikzplotlib.save("multivariate_cdf.pgf")
 
 
+class Bandit():
+	def __init__(self, vectors, probs):
+		self.vectors = vectors
+		self.probs = probs
+		self.n = 1
+
+	def pull_arm(self):
+		
+		return self.vectors[np.random.choice(0, len(self.vectors), replace=False, p=self.probs)]
+
 class Agent():
-	def __init__(self):
+	def __init__(self, actions):
 		self.i = 1
+		self.actions = actions
+		self.esr_set = []
 
 	def stochastic_dominance(self, distribution1, distribution2):
 		cond = False
 		for vec in distribution1.vectors:
+			#print(vec)
 			a = distribution1.cdf_table[tuple(vec)]
 			b = distribution2.cdf_table[tuple(vec)]
 			if a < b:
@@ -109,30 +135,43 @@ class Distribution:
 		return self.cdf_table
 
 
+
+
+
+
 def main():
 
 	max_val = 10
 	plotter = Plotter()
-	agent = Agent()
-	distribution1 = Distribution(max_val)
-	distribution2 = Distribution(max_val)
+	agent = Agent(2)
+	bandits = []
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [[0.1, 0.2, 0.5, 0.2]]))
+	distribution_t1 = Distribution(max_val)
+	distribution_t2 = Distribution(max_val)
 
-	distribution1.vectors = [[1, 1], [1, 5], [2, 3], [1, 2]]
-	pdf_table1 = distribution1.init_pdf([0.1, 0.2, 0.5, 0.2])
-	cdf_table1 = distribution1.update_cdf()
+	distribution_t1.vectors = [[1, 1], [1, 5], [2, 3], [1, 2]]
+	pdf_table1 = distribution_t1.init_pdf([0.1, 0.2, 0.5, 0.2])
+	cdf_table1 = distribution_t1.update_cdf()
 
-	distribution2.vectors = [[1, 1], [1, 2]]
-	pdf_table2 = distribution2.init_pdf([0.5, 0.5])
-	cdf_table2 = distribution2.update_cdf()
+	distribution_t2.vectors = [[1, 1], [1, 2]]
+	pdf_table2 = distribution_t2.init_pdf([0.5, 0.5])
+	cdf_table2 = distribution_t2.update_cdf()
 
-	dominance = agent.stochastic_dominance(distribution1, distribution2)
+	dominance = agent.stochastic_dominance(distribution_t1, distribution_t2)
 	print(dominance)
 
-	dominance = agent.stochastic_dominance(distribution2, distribution1)
+	dominance = agent.stochastic_dominance(distribution_t2, distribution_t1)
 	print(dominance)
-	
+
+	plotter.plot(pdf_table1)	
 	plotter.plot(cdf_table1)
-	plotter.plot(cdf_table2)
+	#plotter.plot(cdf_table2)
+
+	'''
+	for i in range(experiments):
+		if i == 0:
+			for i in range(len(bandits))
+	'''
 
 
 if __name__ == "__main__":
