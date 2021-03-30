@@ -1,7 +1,26 @@
 import numpy as np
+
+import matplotlib as mpl
+
+#mpl.use("pgf")
+#pgf_with_pdflatex = {
+#    "pgf.texsystem": "pdflatex",
+#    "pgf.preamble": [
+         #r"\usepackage[utf8x]{inputenc}",
+         #r"\usepackage[T1]{fontenc}",
+         #r"\usepackage{cmbright}",
+#         ]
+#}
+#mpl.rcParams.update(pgf_with_pdflatex)
+
 import matplotlib.pyplot as plt
 import tikzplotlib
 import itertools
+import pandas as pd
+import os
+import sys
+import time
+
 
 
 class Experiment():
@@ -17,7 +36,7 @@ class Experiment():
 
 class Plotter():
 
-	def plot(self,table):
+	def plot(self, table,_type):
 		_x = []
 		_y = []
 		probs = []
@@ -33,6 +52,9 @@ class Plotter():
 		dx = np.ones(len(_x))
 		dy = np.ones(len(_y))
 		dz = probs
+
+		data = {'x' : _x, 'y': _y, 'z': dz}
+		df = pd.DataFrame(data)  
 
 		fig = plt.figure()
 		ax1 = fig.add_subplot(111, projection='3d')
@@ -57,9 +79,33 @@ class Plotter():
 		ax1.axes.set_ylim3d(bottom=ticks[0], top=len(ticks) - 1) 
 		ax1.axes.set_zlim3d(bottom=0, top=1) 
 
-		plt.show()
+		#plt.show()
+
+		filename = _type + '.csv'
+		outdir = 'tikz/data/'
+		print(os.path.join(os.getcwd(), outdir))
+		path = os.path.normpath(os.path.join(os.getcwd(), outdir))
+		if not os.path.exists(path):
+			#print("Hello")
+			os.makedirs(path, exist_ok = True)
+
+		df.to_csv(path + '/' + _type + '.csv', index = False)
+		#tikzplotlib.save("test.tex")
 		#tikzplotlib.clean()
 		#tikzplotlib.save("multivariate_cdf.pgf")
+		#plt.savefig(_type)
+
+		#filename = _type + '.csv'
+		outdir = 'figures/'
+		print(os.path.join(os.getcwd(), outdir))
+		path = os.path.normpath(os.path.join(os.getcwd(), outdir))
+		if not os.path.exists(path):
+			#print("Hello")
+			os.makedirs(path, exist_ok = True)
+
+		plt.savefig(path + '/' + _type + ".png")	
+		#tikzplotlib.save("multivariate_cdf.pgf")
+		plt.show()
 
 
 class Bandit():
@@ -69,37 +115,64 @@ class Bandit():
 		self.n = 1
 
 	def pull_arm(self):
-		
-		return self.vectors[np.random.choice(0, len(self.vectors), replace=False, p=self.probs)]
+			
+		return self.vectors[np.random.choice(len(self.vectors), 1, replace=False, p=self.probs)[0]]
 
 class Agent():
-	def __init__(self, actions):
+	def __init__(self, actions, max_val):
 		self.i = 1
+		self.max_val = max_val
 		self.actions = actions
 		self.esr_set = []
+		self.distribution = []
+		self.arms = []
+
+		for action in range(self.actions):
+			self.distribution.append(Distribution(self.max_val))
+			self.arms.append(action)
+
 
 	def stochastic_dominance(self, distribution1, distribution2):
-		cond = False
-		for vec in distribution1.vectors:
-			#print(vec)
-			a = distribution1.cdf_table[tuple(vec)]
-			b = distribution2.cdf_table[tuple(vec)]
-			if a < b:
-				cond = True
-			if a <= b:
-				pass
-			else:
-				return False
 
-		return cond
+		cond1 = (distribution1.cdf_table <= distribution2.cdf_table).all()
+		cond2 = (distribution1.cdf_table < distribution2.cdf_table).any()		
 
+		if cond1 == True and cond2 == True:
+			return True
+		else:
+			return False
+
+	def select_action(self):
+		return np.random.choice(self.arms)
+
+	def update(self, action, _return_):
+		self.distribution[action].update_pdf(_return_)
+		self.distribution[action].update_cdf()
+
+	def esr_dominance(self):
+		self.esr_set = []
+
+		for i in range(len(self.arms)):
+			inSet = True
+			for j in range(len(self.arms)):
+				if j == i:
+					dominated = False
+				else:
+					dominated = self.stochastic_dominance(self.distribution[j], self.distribution[i])
+				if dominated == True:
+					inSet = False
+					break
+			if inSet == True:
+				self.esr_set.append(i)
+
+		return self.esr_set
 
 class Distribution:
 	def __init__(self, max_val):
 		self.max_val = max_val
 		self.pdf_table = np.zeros([max_val + 1, max_val + 1])
 		self.cdf_table = np.zeros([max_val + 1, max_val + 1])
-		self.n = 0
+		self.n = 1
 		self.vectors = []
 
 	def init_pdf(self, probs):
@@ -112,15 +185,33 @@ class Distribution:
 
 	def update_pdf(self, vec):		
 					
-		pdf_table[tuple(np.array(vec))] += 1
+		self.pdf_table[tuple(np.array(vec))] += 1
 		self.n += 1
 
+		self.vectors.append(vec)
 		self.vectors.sort()
 		self.vectors = list(self.vectors for self.vectors, _ in itertools.groupby(self.vectors))
 
 		return self.pdf_table
 
-	def update_cdf(self):
+	def get_distribution(self):
+
+		probs = []
+		for vec in self.vectors:
+			probs.append(self.pdf_table[tuple(np.array(vec))]/self.n)
+
+		return self.vectors, probs
+
+	def multidim_cdf(self, pdf):
+			cdf = pdf[...,::1].cumsum(1)[...,::1]
+			for i in range(2,pdf.ndim+1):
+				np.cumsum(cdf, axis=-i, out=cdf)
+			return cdf
+
+	def update_cdf(self):		
+   		
+		self.cdf_table = np.round(self.multidim_cdf(self.pdf_table/self.n), 1)
+		'''
 		for i in range(len(self.cdf_table)):
 			for j in range(len(self.cdf_table)):
 				cdf = 0
@@ -131,47 +222,88 @@ class Distribution:
 						else:
 							break
 				self.cdf_table[i][j] = cdf
+		'''
+		#print(self.cdf_table)
 
 		return self.cdf_table
-
-
-
 
 
 
 def main():
 
 	max_val = 10
+	actions = 6
+	episodes = 100000
+	runs = 1
 	plotter = Plotter()
-	agent = Agent(2)
+	agent = Agent(actions, max_val)
 	bandits = []
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [[0.1, 0.2, 0.5, 0.2]]))
-	distribution_t1 = Distribution(max_val)
-	distribution_t2 = Distribution(max_val)
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	bandits.append(Bandit([[1, 1], [1, 6], [2, 5], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+	#distribution_t1 = Distribution(max_val)
+	#distribution_t2 = Distribution(max_val)
 
-	distribution_t1.vectors = [[1, 1], [1, 5], [2, 3], [1, 2]]
-	pdf_table1 = distribution_t1.init_pdf([0.1, 0.2, 0.5, 0.2])
-	cdf_table1 = distribution_t1.update_cdf()
+	#distribution_t1.vectors = [[1, 1], [1, 5], [2, 3], [1, 2]]
+	#pdf_table1 = distribution_t1.init_pdf([0.1, 0.2, 0.5, 0.2])
+	#cdf_table1 = distribution_t1.update_cdf()
 
-	distribution_t2.vectors = [[1, 1], [1, 2]]
-	pdf_table2 = distribution_t2.init_pdf([0.5, 0.5])
-	cdf_table2 = distribution_t2.update_cdf()
+	#distribution_t2.vectors = [[1, 1], [1, 2]]
+	#pdf_table2 = distribution_t2.init_pdf([0.5, 0.5])
+	#cdf_table2 = distribution_t2.update_cdf()
 
-	dominance = agent.stochastic_dominance(distribution_t1, distribution_t2)
-	print(dominance)
+	#dominance = agent.stochastic_dominance(distribution_t1, distribution_t2)
+	#print(dominance)
 
-	dominance = agent.stochastic_dominance(distribution_t2, distribution_t1)
-	print(dominance)
+	#dominance = agent.stochastic_dominance(distribution_t2, distribution_t1)
+	#print(dominance)
 
-	plotter.plot(pdf_table1)	
-	plotter.plot(cdf_table1)
+	#plotter.plot(pdf_table1, "pdf")	
+	#plotter.plot(cdf_table1, "cdf")
 	#plotter.plot(cdf_table2)
 
-	'''
-	for i in range(experiments):
-		if i == 0:
-			for i in range(len(bandits))
-	'''
+
+	for run in range(runs):
+		esr_vector = []
+		esr_probs = []
+		start = time.perf_counter()
+
+		for i in range(episodes):
+			if i == 0:
+				for i in range(len(bandits)):
+					_return_ = bandits[i].pull_arm()
+					agent.update(i, _return_)
+
+			action = agent.select_action()
+			_return_ = bandits[action].pull_arm()
+			agent.update(action, _return_)
+			esr_index = agent.esr_dominance()
+
+		for val in esr_index:
+			esr_vector.append(agent.distribution[val].get_distribution()[0])
+			esr_probs.append(agent.distribution[val].get_distribution()[1])
+
+		distribution1 = agent.distribution[0]
+		distribution2 = agent.distribution[1]
+
+		print(distribution1.cdf_table)
+		print(distribution2.cdf_table)
+		print(agent.stochastic_dominance(distribution1, distribution2))
+		print(agent.stochastic_dominance(distribution2, distribution1))
+
+		end = time.perf_counter()
+		print("")
+		print('**** Run ' + str(run) + ' Execution Time: ' + str(round((end - start), 2)) +' seconds ****', )
+		print("ESR Vector and Probabilities")
+		print(esr_vector)
+		print(esr_probs)
+		print(agent.distribution[0].update_cdf())
+		#print(agent.distribution)
+		print(" ")
+
 
 
 if __name__ == "__main__":
