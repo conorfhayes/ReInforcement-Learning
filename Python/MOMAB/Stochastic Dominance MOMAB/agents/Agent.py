@@ -18,7 +18,7 @@ class Agent():
 	def stochastic_dominance(self, distribution1, distribution2):
 
 		cond1 = (distribution1.cdf_table <= distribution2.cdf_table).all()
-		cond2 = (distribution1.cdf_table < distribution2.cdf_table).any()		
+		cond2 = (distribution1.cdf_table < distribution2.cdf_table).any()	
 
 		if cond1 == True and cond2 == True:
 			return True
@@ -37,11 +37,13 @@ class Agent():
 
 		for i in range(len(self.arms)):
 			inSet = True
+			dominated = False
+			arm = self.distribution[i]
 			for j in range(len(self.arms)):
-				if j == i:
-					dominated = False
+				if i == j:
+					pass
 				else:
-					dominated = self.stochastic_dominance(self.distribution[j], self.distribution[i])
+					dominated = self.stochastic_dominance(self.distribution[j], arm)
 				if dominated == True:
 					inSet = False
 					break

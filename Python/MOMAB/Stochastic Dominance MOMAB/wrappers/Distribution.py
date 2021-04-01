@@ -44,7 +44,7 @@ class Distribution:
 
 	def update_cdf(self):		
    		
-		self.cdf_table = np.round(self.multidim_cdf(self.pdf_table/self.n), 1)
+		self.cdf_table = np.round(self.multidim_cdf(self.pdf_table/self.n), 2)
 		'''
 		for i in range(len(self.cdf_table)):
 			for j in range(len(self.cdf_table)):

@@ -1,183 +1,94 @@
-import numpy as np
-
-import matplotlib as mpl
-
-#mpl.use("pgf")
-#pgf_with_pdflatex = {
-#    "pgf.texsystem": "pdflatex",
-#    "pgf.preamble": [
-         #r"\usepackage[utf8x]{inputenc}",
-         #r"\usepackage[T1]{fontenc}",
-         #r"\usepackage{cmbright}",
-#         ]
-#}
-#mpl.rcParams.update(pgf_with_pdflatex)
-
-import matplotlib.pyplot as plt
-import tikzplotlib
-import itertools
-import pandas as pd
-import os
-import sys
-import time
-import random
-
-
-class Experiment():
-	def __init__(self, bandits, agent, runs, exp_nums):
-		self.bandits = bandits
-		self.agent = agent
-		self.runs = runs
-		self.exp_nums = exp_nums
-
-	def run(self):
-
-		for run in range(self.runs):
-			esr_vector = []
-			esr_probs = []
-			start = time.perf_counter()
-
-		for i in range(self.exp_nums):
-			if i == 0:
-				for j in range(len(self.bandits)):
-					_return_ = self.bandits[j].pull_arm()
-					self.agent.update(j, _return_)
-
-			action = self.agent.select_action()
-			_return_ = self.bandits[action].pull_arm()
-			self.agent.update(action, _return_)
-			esr_index = self.agent.esr_dominance()
-
-		for val in esr_index:
-			esr_vector.append(self.agent.distribution[val].get_distribution()[0])
-			esr_probs.append(self.agent.distribution[val].get_distribution()[1])
-
-
-		end = time.perf_counter()
-		print("")
-		print('**** Run ' + str(run + 1) + ' - Execution Time: ' + str(round((end - start), 2)) +' seconds ****', )
-		print(str(len(esr_index)) + " distributions in the ESR set")
-		print("ESR Vector and Probabilities")
-		print(esr_vector)
-		print(esr_probs)
-		#print(self.agent.distribution[0].update_cdf())
-		#print(agent.distribution)
-		print(" ")
-
-		return
-
-
-class Plotter():
-
-	def plot(self, table,_type):
-		_x = []
-		_y = []
-		probs = []
-
-		# fake data
-		for i in range(len(table)):
-			for j in range(len(table)):
-				_x.append(i)
-				_y.append(j)
-				probs.append(table[i][j])
-
-		_z = np.zeros(len(probs))
-		dx = np.ones(len(_x))
-		dy = np.ones(len(_y))
-		dz = probs
-
-		data = {'x' : _x, 'y': _y, 'z': dz}
-		df = pd.DataFrame(data)  
-
-		fig = plt.figure()
-		ax1 = fig.add_subplot(111, projection='3d')
-
-		#ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
-		#ax1.bar3d(_x, _y, _z, 1, 1, dz, shade = True)
-		ax1.plot_trisurf(_x, _y, dz, cmap='Blues')
-		#ax1.plot_trisurf(_x, _y, dz, cmap='twilight_shifted')
-		#ax1.scatter(_x, _y, dz, c=dz, cmap='BrBG', linewidth=1)
-
-		ax1.set_xlabel('objective 1')
-		ax1.set_ylabel('objective 2')
-		ax1.set_zlabel('probability')
-
-		ticks = [i for i in range(len(table))]
-
-		ax1.set_xticks(ticks)
-		ax1.set_yticks(ticks)
-		ax1.set_zticks([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1])
-
-		ax1.axes.set_xlim3d(left=ticks[0], right=len(ticks) - 1) 
-		ax1.axes.set_ylim3d(bottom=ticks[0], top=len(ticks) - 1) 
-		ax1.axes.set_zlim3d(bottom=0, top=1) 
-
-		#plt.show()
-
-		filename = _type + '.csv'
-		outdir = 'tikz/data/'
-		print(os.path.join(os.getcwd(), outdir))
-		path = os.path.normpath(os.path.join(os.getcwd(), outdir))
-		if not os.path.exists(path):
-			#print("Hello")
-			os.makedirs(path, exist_ok = True)
-
-		df.to_csv(path + '/' + _type + '.csv', index = False)
-		#tikzplotlib.save("test.tex")
-		#tikzplotlib.clean()
-		#tikzplotlib.save("multivariate_cdf.pgf")
-		#plt.savefig(_type)
-
-		#filename = _type + '.csv'
-		outdir = 'figures/'
-		print(os.path.join(os.getcwd(), outdir))
-		path = os.path.normpath(os.path.join(os.getcwd(), outdir))
-		if not os.path.exists(path):
-			#print("Hello")
-			os.makedirs(path, exist_ok = True)
-
-		plt.savefig(path + '/' + _type + ".png")	
-		#tikzplotlib.save("multivariate_cdf.pgf")
-		plt.show()
-
 
 def main():
 	from agents.Agent import Agent
 	from envs.Bandit import Bandit
 	from wrappers.Distribution import Distribution
+	from experiments.Experiment import Experiment
+	from plot.Plotter import Plotter
+	from wrappers.SER import SER
+	import argparse
 
-	max_val = 10
-	actions = 4
-	episodes = 200000
-	runs = 1
+	parser = argparse.ArgumentParser(description='')
+	parser.add_argument('--max_val', default=10, type=int)
+	#parser.add_argument('--num_bandits', default=1, type=int)
+	parser.add_argument('--timesteps', default=100000, type=int)
+	parser.add_argument('--runs', default=1, type=int)
+	parser.add_argument('--type_bandits', default='random', type=str)
+	args = parser.parse_args()
+	print(args)
+
+	max_val = args.max_val
+	actions = 5
+	episodes = args.timesteps
+	runs = args.runs
 	plotter = Plotter()
 	agent = Agent(actions, max_val)
+	
 	bandits = []
+	bandit_distributions = []
+	bandit_probabilities = []
 
-	#param = [True/False, number of obs in distribution, num objective, max value]
-	bandits.append(Bandit(param = [True, 5, 2, 5]))
-	bandits.append(Bandit(param = [True, 5, 2, 2]))
-	bandits.append(Bandit(param = [True, 5, 2, 3]))
-	#bandits.append(Bandit(param = [True, 5, 2, 5]))
-	bandits.append(Bandit(param = [True, 5, 2, 2]))
+
+	if args.type_bandits == 'random':
+
+		# Random Distributions
+		#param = [True/False, number of obs in distribution, num objective, max value]
+		bandits.append(Bandit(param = [True, 5, 2, 5]))
+		bandits.append(Bandit(param = [True, 5, 2, 2]))
+		bandits.append(Bandit(param = [True, 5, 2, 3]))
+		bandits.append(Bandit(param = [True, 5, 2, 5]))
+		bandits.append(Bandit(param = [True, 5, 2, 2]))
+		print("*** Bandit Distributions ***")
+		for i in range(actions):
+			print(bandits[i].vectors)
+			print(bandits[i].probs)
+			print("")
+
+	if args.type_bandits == 'bandit-example':
+
+		# Manual Distributions
+		bandits.append(Bandit([[2, 0], [2, 1]], [0.05, 0.05]))
+		bandits.append(Bandit([[0, 0], [1, 1]], [0.1, 0.1]))
+		bandits.append(Bandit([[1, 0], [1, 3]], [0.1, 0.1]))
+		bandits.append(Bandit([[1, 0], [2, 1]], [0.1, 0.4]))
+		bandits.append(Bandit([[1, 1], [1, 2]], [0.05, 0.05]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+
+	
+	if args.type_bandits == 'manual-example':
+
+		# Manual Distributions
+		bandits.append(Bandit([[2, 0], [2, 1], [3, 2], [4, 2]], [0.05, 0.05, 0.1, 0.8]))
+		bandits.append(Bandit([[0, 0], [1, 1], [2, 0], [2, 1]], [0.1, 0.1, 0.5, 0.3]))
+		bandits.append(Bandit([[1, 0], [1, 3], [3, 4], [5, 4]], [0.1, 0.1, 0.2, 0.6]))
+		bandits.append(Bandit([[1, 0], [2, 1], [3, 1], [3, 2]], [0.1, 0.4, 0.4, 0.1]))
+		bandits.append(Bandit([[1, 1], [1, 2], [4, 0], [0, 0]], [0.05, 0.05, 0.1, 0.8]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
+
+
 	for i in range(actions):
-		#bandits.append(Bandit(param = [True, 5, 2, 5]))
-		print(bandits[i].vectors)
-		print(bandits[i].probs)
-		print(" ")
+		#print(bandits[i].vectors)
+		#print(bandits[i].probs)
+		bandit_distributions.append(bandits[i].vectors)
+		bandit_probabilities.append(bandits[i].probs)
+		#print(" ")
 
-	experiment = Experiment(bandits, agent, runs, episodes)
+	experiment = Experiment("bandit", bandits, agent, runs, episodes)
 	experiment.run()
+	#plotter.multi_cdf_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_pdf_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.heatmap_plot([[2, 0], [2, 1], [3, 2], [4, 2]], [0.05, 0.05, 0.1, 0.8])
+	#plotter.multi_heatmap_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_joint_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_pdf_bar_plot(experiment.esr_vector, experiment.esr_probs)
+
 
 	'''
 	test code
-
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
-	bandits.append(Bandit([[1, 1], [1, 6], [2, 5], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
-	bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
 
 	
 	distribution_t1 = Distribution(max_val)
@@ -204,4 +115,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
