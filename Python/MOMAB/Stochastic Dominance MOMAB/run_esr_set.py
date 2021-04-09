@@ -1,3 +1,5 @@
+from datetime import datetime
+import uuid
 
 def main():
 	from agents.Agent import Agent
@@ -10,7 +12,6 @@ def main():
 
 	parser = argparse.ArgumentParser(description='')
 	parser.add_argument('--max_val', default=10, type=int)
-	#parser.add_argument('--num_bandits', default=1, type=int)
 	parser.add_argument('--timesteps', default=100000, type=int)
 	parser.add_argument('--runs', default=1, type=int)
 	parser.add_argument('--type_bandits', default='random', type=str)
@@ -28,6 +29,8 @@ def main():
 	bandit_distributions = []
 	bandit_probabilities = []
 
+	#logdir = f'runs/bandit/{args.type_bandits}/'
+    #logdir += datetime.now().strftime('%Y-%m-%d_%H-%M-%S_') + str(uuid.uuid4())[:4] + '/'
 
 	if args.type_bandits == 'random':
 
@@ -38,13 +41,14 @@ def main():
 		bandits.append(Bandit(param = [True, 5, 2, 3]))
 		bandits.append(Bandit(param = [True, 5, 2, 5]))
 		bandits.append(Bandit(param = [True, 5, 2, 2]))
+
 		print("*** Bandit Distributions ***")
 		for i in range(actions):
 			print(bandits[i].vectors)
 			print(bandits[i].probs)
 			print("")
 
-	if args.type_bandits == 'bandit-example':
+	if args.type_bandits == 'bandit':
 
 		# Manual Distributions
 		bandits.append(Bandit([[2, 0], [2, 1]], [0.05, 0.05]))
@@ -57,7 +61,7 @@ def main():
 		#bandits.append(Bandit([[1, 1], [1, 5], [2, 3], [1, 2]], [0.1, 0.2, 0.5, 0.2]))
 
 	
-	if args.type_bandits == 'manual-example':
+	if args.type_bandits == 'realworld':
 
 		# Manual Distributions
 		bandits.append(Bandit([[2, 0], [2, 1], [3, 2], [4, 2]], [0.05, 0.05, 0.1, 0.8]))
@@ -77,14 +81,30 @@ def main():
 		bandit_probabilities.append(bandits[i].probs)
 		#print(" ")
 
-	experiment = Experiment("bandit", bandits, agent, runs, episodes)
+	esr_vectors = []
+	esr_probabilities = []
+	esr_vectors.append(bandit_distributions[0])
+	esr_vectors.append(bandit_distributions[2])
+	esr_probabilities.append(bandit_probabilities[0])
+	esr_probabilities.append(bandit_probabilities[2])
+
+	experiment = Experiment("bandit", bandits, agent, runs, episodes, esr_vectors, esr_probabilities)
 	experiment.run()
 	#plotter.multi_cdf_plot(experiment.esr_vector, experiment.esr_probs)
 	#plotter.multi_pdf_plot(experiment.esr_vector, experiment.esr_probs)
 	#plotter.heatmap_plot([[2, 0], [2, 1], [3, 2], [4, 2]], [0.05, 0.05, 0.1, 0.8])
+
+	#plots to generate 
 	#plotter.multi_heatmap_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_pdf_bar_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_cdf_plot(experiment.esr_vector, experiment.esr_probs)
+	
+
+
 	#plotter.multi_joint_plot(experiment.esr_vector, experiment.esr_probs)
 	#plotter.multi_pdf_bar_plot(experiment.esr_vector, experiment.esr_probs)
+	#plotter.multi_3d_pdf_bar_plot(experiment.esr_vector, experiment.esr_probs)
+
 
 
 	'''

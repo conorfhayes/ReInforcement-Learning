@@ -111,6 +111,7 @@ class Plotter():
 			pdf_table[tuple(np.array(table_vec[j]))] = table_probs[j]
 
 		plt.imshow(pdf_table, cmap=self.colors[0])
+		#plt.colorbar
 		plt.show()
 
 		return
@@ -139,7 +140,7 @@ class Plotter():
 				pdf_table[tuple(np.array(vec[j]))] = probs[j]			
 		
 
-		ax1.imshow(pdf_table, cmap='Blues')
+		im = ax1.imshow(pdf_table, cmap='Blues')
 
 		ax1.set_xlabel('objective 1')
 		ax1.set_ylabel('objective 2')
@@ -153,7 +154,10 @@ class Plotter():
 
 		ax1.axes.set_xlim(left=ticks[0], right=len(ticks) - 1) 
 		ax1.axes.set_ylim(bottom=ticks[0], top=len(ticks) - 1) 
+		#ax1.colorbar()
 		#ax1.axes.set_zlim3d(bottom=0, top=1) 
+		cbar = fig.colorbar(im, orientation='vertical')
+		#cbar.set_ticks(np.arange(0, 1, 0.1))
 
 		plt.show()
 
@@ -325,6 +329,65 @@ class Plotter():
 
 		return
 
+	def multi_3d_pdf_bar_plot(self, table_vec, table_probs):
+		self.colors = ['r', 'g', 'b']
+		max_val = 10
+		#fig = plt.figure()
+		ax1 = plt.figure().add_subplot(projection='3d')
+
+		for i in range(len(table_vec)):
+			#if i >= 1:
+			#	pass
+			#else:
+			_x = []
+			_y = []
+			pdf_p = []
+			pdf_table = np.zeros([max_val + 1, max_val + 1])
+			
+
+			for j in range(len(table_vec[i])):
+				vec = table_vec[i]
+				probs = table_probs[i]
+				pdf_table[tuple(np.array(vec[j]))] = probs[j]
+
+			
+			for a in range(len(pdf_table)):
+				for b in range(len(pdf_table)):
+					_x.append(a)
+					_y.append(b)
+					pdf_p.append(pdf_table[a][b])
+
+			_z = np.zeros(len(pdf_p))
+			dx = np.ones(len(_x))
+			dy = np.ones(len(_y))
+			dz = pdf_p
+			df = pd.DataFrame({'_x': _x, '_y': _y, '_z':_z, 'dx':dx, 'dy':dy, 'dz':dz})
+			df = df[df['dz'] !=0]
+			#print(df)
+			#ax1.bar3d(df['_x'], df['_y'], df['_z'], df['dx'], df['dy'], df['dz'], alpha = 0.6)
+			ax1.bar(df['_x'], df['dz'], zs=0, zdir='x', color = self.colors[i], alpha = 0.4)
+			ax1.bar(df['_y'], df['dz'], zs=0, zdir='y', color = self.colors[i], alpha = 0.4)
+			ax1.scatter(df['_x'], df['_y'], zs=0, zdir='z', color = self.colors[i], alpha = 0.4)
+
+		ax1.set_xlabel('objective 1')
+		ax1.set_ylabel('objective 2')
+		ax1.set_zlabel('probability')
+
+		ticks = [i for i in range(max_val + 1)]
+
+		ax1.set_xticks(ticks)
+		ax1.set_yticks(ticks)
+		ax1.set_zticks([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1])
+
+		ax1.axes.set_xlim3d(left=ticks[0], right=len(ticks) - 1) 
+		ax1.axes.set_ylim3d(bottom=ticks[0], top=len(ticks) - 1) 
+		ax1.axes.set_zlim3d(bottom=0, top=1) 
+
+		plt.show()
+
+
+		return
+
 	def man_plot(self, vec, probs, _type):
 		self.vec = vec
 		self.probs = probs
@@ -380,6 +443,27 @@ class Plotter():
 		ax1.axes.set_zlim3d(bottom=0, top=1) 
 
 		plt.show()
+
+	def xy_plot(self, data, exp):
+		data = np.insert(data, 0, 0)
+		_y = data
+		inc = exp / ((len(data))-1) 
+		_x = np.arange(0, exp + inc, inc)
+		fig = plt.figure()
+		ax1 = fig.add_subplot(111)
+
+		ax1.plot(_x, _y, color='lightblue')
+		ax1.set_xlabel('Episodes')
+		ax1.set_ylabel('F1 Score')
+
+		ticks = np.arange(0, exp + exp/10, exp/10)
+		ax1.set_xticks(ticks)
+		#ax1.set_yticks(ticks)
+
+		plt.show()
+		return
+
+	
 
 
 	def exp_plot(self, table, _type):
