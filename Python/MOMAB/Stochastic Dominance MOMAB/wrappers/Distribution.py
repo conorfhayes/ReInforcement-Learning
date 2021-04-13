@@ -60,3 +60,8 @@ class Distribution:
 		#print(self.cdf_table)
 
 		return self.cdf_table
+
+	def manual_pdf(self, vec, prob):
+		self.pdf_table[tuple(np.array(vec))] = prob
+
+		return self.pdf_table

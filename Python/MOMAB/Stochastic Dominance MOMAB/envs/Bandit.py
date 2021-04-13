@@ -35,5 +35,3 @@ class Bandit():
 		probs = probs/sum_probs
 		self.vectors = obs
 		self.probs = probs
-		#print(probs)
-		#print(sum(probs))

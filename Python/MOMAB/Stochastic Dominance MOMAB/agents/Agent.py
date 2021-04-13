@@ -51,3 +51,13 @@ class Agent():
 				self.esr_set.append(i)
 
 		return self.esr_set
+
+	def manual_distribution(self, vec, probs):
+		
+		self.distribution.append(Distribution(self.max_val))	
+		for i in range(len(vec)):				
+			self.distribution[-1].manual_pdf(vec[i], probs[i])
+		
+		self.distribution[-1].update_cdf()
+
+		return
