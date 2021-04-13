@@ -18,12 +18,12 @@ To run this code you need to specify the following arguments:
 	--max_val
 	--timesteps
 	--runs
-	--type_bandits
+	--env
 
 To run this code run the following command:
-	python run_esr_set.py --max_val --timesteps --runs --type_bandits
+	python run_esr_set.py --max_val --timesteps --runs --env
 
 For example:
- 	python run_esr_set.py --max_val=10 --timesteps=100000 --runs=1 --type_bandits='realworld'
+ 	python run_esr_set.py --max_val=10 --timesteps=100000 --runs=1 --env='realworld'
 
 
